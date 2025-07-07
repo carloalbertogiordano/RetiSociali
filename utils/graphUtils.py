@@ -24,8 +24,8 @@ def save_plot(graph: ig.Graph, file_path: str, vertex_number=0) :
         bbox=(1000, 1000),
     )
 
-def cost1(node: ig.Vertex, rangeLow: int, rangeMax: int) :
-    return random.random(rangeLow, rangeMax)
+def cost1(node: ig.Vertex, rangeLow=1, rangeMax=10) :
+    return random.randint(rangeLow, rangeMax)
 
 def cost2(node: ig.Vertex) :
     return node.degree() / 2
