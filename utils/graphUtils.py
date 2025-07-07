@@ -31,4 +31,4 @@ def cost2(node: ig.Vertex) :
     return node.degree() / 2
 
 def cost3(node: ig.Vertex) :
-    return cost1() # TODO: Creare una funzione ad hoc
+    return cost1(node, 10, 1000) # TODO: Creare una funzione ad hoc
