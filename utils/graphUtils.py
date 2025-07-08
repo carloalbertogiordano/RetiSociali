@@ -23,12 +23,3 @@ def save_plot(graph: ig.Graph, file_path: str, vertex_number=0) :
         vertex_label=None,
         bbox=(1000, 1000),
     )
-
-def cost1(node: ig.Vertex, rangeLow=1, rangeMax=10) :
-    return random.randint(rangeLow, rangeMax)
-
-def cost2(node: ig.Vertex) :
-    return node.degree() / 2
-
-def cost3(node: ig.Vertex) :
-    return cost1(node, 10, 1000) # TODO: Creare una funzione ad hoc
