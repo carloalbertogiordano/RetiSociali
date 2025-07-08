@@ -1,5 +1,6 @@
 import math
 
+
 def f1(G, S):
     total = 0
     for v in range(G.vcount()):
@@ -7,6 +8,7 @@ def f1(G, S):
         threshold = math.ceil(G.degree(v) / 2)
         total += min(len(neighbors_in_S), threshold)
     return total
+
 
 def f2(G, S):
     total = 0
@@ -17,6 +19,7 @@ def f2(G, S):
         for i in range(1, len(neighbors_in_S) + 1):
             total += max(threshold - i + 1, 0)
     return total
+
 
 def f3(G, S):
     total = 0
