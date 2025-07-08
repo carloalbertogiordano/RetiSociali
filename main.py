@@ -7,6 +7,7 @@ from utils.graphUtils import *
 from csg import cost_seeds_greedy
 from utils.goal_function import *
 from utils.cost_function import *
+from utils.plotUtils import *
 
 
 def majority_cascade(G, S):
@@ -52,9 +53,17 @@ def main():
     print(f"Seed set: {seed_set}")
 
     cascade = majority_cascade(get_subgraph(g, 300), seed_set)
+<<<<<<< Updated upstream
     # print(cascade)
     # print(type(cascade))
 
+=======
+    plot_majority_cascade(cascade)
+    #print(cascade)
+    #print(type(cascade))
+
+    
+>>>>>>> Stashed changes
     for t, influenced in enumerate(cascade):
         print(f"Inf[S, {t}] = {sorted(influenced)}")
 
