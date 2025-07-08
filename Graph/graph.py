@@ -220,19 +220,22 @@ class Graph:
 
         # Calculate the seed set
         V = self.graph.vs["name"]
-
+        #print(f"Node set: {V}")
         # Insieme S_p=S_d=Empty
         S_p = set()
         S_d = set()
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
         while cost_seed_set(S_d, cost_fun) <= self.budget:
+            print(f" Cost seed set: {cost_seed_set(S_d, cost_fun)}")
             # print(f"Costo di S {cost_seed_set(S_d, cost_fn)}, k={k}")
             u = argmax(V, S_d, obj_fun, cost_fun)
+            print(f"Selected node: {u}")
 
             S_p = S_d.copy()
             S_d.add(u)
-
+            print(f"Seed set (d): {S_d}")
+        print(f"Seed set (p): {S_p}")
         self.seedSet = list(S_p)
 
     def wtss(self, select_cost=CostFuncType.RANDOM):
@@ -257,17 +260,18 @@ class Graph:
 
         #select_threshold = 1 #TODO: Define functions
 
-        thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
+        #thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
 
         V = self.graph.vs["name"]
 
         U = set(V)
         S = set()
+        thresholds = {v: max(1, self.graph.vs.find(name=v).degree() // 2) for v in V}
 
         # Stato dinamico
-        delta = {v: self.graph.degree(v) for v in V}  # δ(v) -> grado
+        delta = {v: self.graph.vs.find(name=v).degree() for v in V}  # δ(v) -> grado
         k = {v: thresholds[v] for v in V}  # k(v) -> threshold
-        neighbors = {v: set(self.graph.neighbors(v)) for v in V}  # neighbors(v) -> Vicini
+        neighbors = {v: set(x["name"] for x in self.graph.vs.find(name=v).neighbors()) for v in V}  # neighbors(v) -> Vicini
 
         while U:
             # Case 1: nodo già attivabile
@@ -299,9 +303,8 @@ class Graph:
             for u in neighbors[v]:
                 if u in U:
                     delta[u] -= 1
-                    neighbors[u].discard(v)
+                    neighbors[u].discard(v)       
             U.remove(v)
-
         self.seedSet = S
 
     def calc_seed_set(self, method, *args, **kwargs):
@@ -375,7 +378,7 @@ class Graph:
         Print the majority cascade steps with sorted node lists.
         """
         for t, influenced in enumerate(self.cascade):
-            print(f"Inf[S, {t}] = {sorted(influenced)}")
+            print(f"Inf[S, {t}] = {sorted(influenced)}; |Inf[S, {t}]| = {len(influenced)}\n")
 
 
     def save_plot(self, filename:str):
