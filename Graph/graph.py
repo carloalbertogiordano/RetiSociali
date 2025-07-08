@@ -1,5 +1,3 @@
-from enum import EnumType
-
 import matplotlib.pyplot as plt
 import igraph as ig
 import random
@@ -17,7 +15,7 @@ def cost_seed_set(S, cost):
     """
     return sum(cost(u) for u in S)
 
-def marginal_gain(v, S, fi, G):
+def marginal_gain(v, S, fi):
     """
     Compute the marginal gain of adding node v to the seed set S.
 
@@ -42,7 +40,7 @@ def argmax(V, S, f, cost_function, g):
     :param g: The graph object.
     :return: The node with the best marginal gain / cost ratio.
     """
-    return max(set(V) - S, key=lambda v: marginal_gain(v, S, f, g) / cost_function(v))
+    return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / cost_function(v))
 
 def get_subgraph(graph: ig.Graph, number: int):
     """
@@ -257,7 +255,7 @@ class Graph:
             case _:
                 return
 
-        select_threshold = 1 #TODO: Define functions
+        #select_threshold = 1 #TODO: Define functions
 
         thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
 
