@@ -13,7 +13,7 @@ def main():
 
     print(f"Grafo caricato: {g.vcount()} nodi, {g.ecount()} archi.")
         
-    cost_seeds_greedy(get_subgraph(g, 100), 4039, cost1, f1)
+    cost_seeds_greedy(g, 4039, cost1, f1)
     
     save_plot(g, "graphs/images/test2.png")
     

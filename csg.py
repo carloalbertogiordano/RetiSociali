@@ -13,12 +13,12 @@ def marginal_gain(v, S, fi, G):
 
 # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
 def argmax(V, S, f, cost_function, g):
-    max(set(V)- S, key=lambda v: marginal_gain(v,S, f, g) / cost_function(v))
+    return max(set(V)- S, key=lambda v: marginal_gain(v,S, f, g) / cost_function(v))
 
 
 
 def cost_seeds_greedy(G, k, cost_fn, fi):
-    print(f"G: {G}, k: {k}, cost function: {cost_fn}, goal function: {fi}")
+    #print(f"G: {G}, k: {k}, cost function: {cost_fn}, goal function: {fi}")
     # Insieme V dei nodi del grafo
     V = list(range(G.vcount()))
     
@@ -33,6 +33,6 @@ def cost_seeds_greedy(G, k, cost_fn, fi):
         
         S_p = S_d.copy()
         S_d.add(u)
-        print(f"Dimensione S_d: {len(S_d)}")
 
+        print(f"Dimensione S_p: {len(S_p)}")
     return list(S_p)
