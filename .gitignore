@@ -95,3 +95,4 @@ http-client.private.env.json
 .idea/ApifoxUploaderProjectSetting.xml
 
 utils/__pycache__
+Graph/__pycache__

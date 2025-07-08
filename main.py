@@ -7,7 +7,10 @@ def main():
                   'graphs/',
                   is_sub_graph=True,
                   sub_graph_dim=30)
-    graph.calc_seed_set('csg', select_cost=1, select_goal_fun=1)
+    graph.calc_seed_set('csg',
+                        select_cost=Graph.CostFuncType.DEGREE,
+                        select_goal_fun=Graph.GoalFuncType.F1)
+
     print(graph.get_seed_set())
 
     graph.calc_majority_cascade()

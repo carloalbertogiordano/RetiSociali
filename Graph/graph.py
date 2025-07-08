@@ -1,33 +1,100 @@
-from Graph.utilFuncs.goal_function import *
-from Graph.utilFuncs.cost_function import *
+from enum import EnumType
+
 import matplotlib.pyplot as plt
+import igraph as ig
+import random
+from enum import Enum
+import math
 
 
-# Calcola il costo del seed set sommando il valore di c(u) per tutti i nodi
-# nell'insieme S
 def cost_seed_set(S, cost):
+    """
+    Calculate the total cost of the seed set by summing the cost of each node.
+
+    :param S: The seed set, a collection of nodes.
+    :param cost: A function that returns the cost of a node.
+    :return: The total cost of the seed set.
+    """
     return sum(cost(u) for u in S)
 
-# Calcola la differenza tra la funzione obiettivo calcolata sull'insieme contenente v
-# e la funzione obiettivo calcolata sull'insieme non contenente v
 def marginal_gain(v, S, fi, G):
+    """
+    Compute the marginal gain of adding node v to the seed set S.
+
+    :param v: The node to be added.
+    :param S: The current seed set.
+    :param fi: The objective function to evaluate the seed set.
+    :param G: The graph on which the computation is performed.
+    :return: The marginal gain, i.e., fi(S ∪ {v}) - fi(S).
+    """
     S_with_v = S.union({v})
-    return fi(G, S_with_v) - fi(G, S)
+    return fi(S_with_v) - fi(S)
 
 # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
 def argmax(V, S, f, cost_function, g):
+    """
+    Select the node with the highest marginal gain to cost ratio.
+
+    :param V: The set of all nodes in the graph.
+    :param S: The current seed set.
+    :param f: The objective function to evaluate the seed set.
+    :param cost_function: The function to compute the cost of a node.
+    :param g: The graph object.
+    :return: The node with the best marginal gain / cost ratio.
+    """
     return max(set(V) - S, key=lambda v: marginal_gain(v, S, f, g) / cost_function(v))
 
 def get_subgraph(graph: ig.Graph, number: int):
-    return graph.induced_subgraph(list(range(number)))
+    """
+    Extract a subgraph with a specified number of nodes using BFS.
+
+    :param graph: The original graph.
+    :param number: The desired number of nodes in the subgraph.
+    :return: An induced subgraph containing the selected nodes.
+    """
+    start_node = random.choice(range(graph.vcount()))
+    visited = set()
+    queue = [start_node]
+
+    while queue and len(visited) < number:
+        current = queue.pop(0)
+        if current not in visited:
+            visited.add(current)
+            neighbors = graph.neighbors(current)
+            for n in neighbors:
+                if n not in visited and n not in queue:
+                    queue.append(n)
+
+    return graph.induced_subgraph(list(visited))
 
 
 class Graph:
 
+    class CostFuncType(Enum):
+        RANDOM = 1
+        DEGREE = 2
+        CUSTOM = 3
+
+    class GoalFuncType(Enum):
+        F1 = 1
+        F2 = 2
+        F3 = 3
+
     def __init__(self, filePath: str, budget: int, save_path:str, is_sub_graph=True, sub_graph_dim=100):
+        """
+        Initialize a Graph object with a graph loaded from a file.
+
+        :param filePath: Path to the edge list file defining the graph.
+        :param budget: The maximum allowable cost for the seed set.
+        :param save_path: Directory path to save output plots.
+        :param is_sub_graph: If True, use a subgraph instead of the full graph.
+        :param sub_graph_dim: Number of nodes in the subgraph if is_sub_graph is True.
+        """
         self.full_graph = ig.Graph.Read_Edgelist(filePath, directed=False)
+        self.full_graph.vs["name"] = list(range(self.full_graph.vcount()))
+
         self.graph = self.full_graph
-        
+
         if is_sub_graph :
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
 
@@ -39,32 +106,122 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
-    def csg(self, select_cost=1, select_goal_fun=1):
-        if select_cost > 3 or select_cost < 0 or select_goal_fun > 3 or select_goal_fun < 0:
+    def cost_func_random(rangeLow=1, rangeMax=10):
+        """
+        Generate a random cost for a node within a specified range.
+
+        :param rangeLow: Lower bound of the random cost range (default: 1).
+        :param rangeMax: Upper bound of the random cost range (default: 10).
+        :return: A random integer cost between rangeLow and rangeMax.
+        :raises TypeError: If rangeLow or rangeMax are not integers.
+        """
+        if not isinstance(rangeLow, int) or not isinstance(rangeMax, int):
+            raise TypeError(f"Cost function parameter type mismatch -> "
+                            f"rangeLow is {type(rangeLow)} rangeMax is {type(rangeMax)}")
+        return random.randint(rangeLow, rangeMax)
+
+    def cost_func_degree(self, nodeLabel: int):
+        """
+        Compute the cost of a node based on its degree.
+
+        :param nodeLabel: The label (name) of the node.
+        :return: The node's degree divided by 2.
+        :raises TypeError: If nodeLabel is not an integer.
+        """
+        if not isinstance(nodeLabel, int):
+            raise TypeError(f"COst func degree type mismatch -> nodeLabel is {type(nodeLabel)}")
+        node = self.graph.vs.find(name=nodeLabel)
+        return node.degree() / 2
+
+    def cost_func_custom(self, nodeLabel: int):
+        """
+        Placeholder for a custom cost function.
+
+        :param nodeLabel: The label (name) of the node.
+        :return: A cost value (currently returns 0 as a placeholder).
+        """
+        return 0  # cost_func_random(node, 10, 1000)  # TODO: Creare una funzione ad hoc
+
+    def f1(self, S):
+        """
+                Objective function F1: Sum of minimum between neighbors in S and threshold.
+
+                :param S: The seed set.
+                :return: The total value of the objective function across all nodes.
+                """
+        total = 0
+        for v in range(self.graph.vcount()):
+            neighbors_in_S = set(self.graph.neighbors(v)).intersection(S)
+            threshold = math.ceil(self.graph.degree(v) / 2)
+            total += min(len(neighbors_in_S), threshold)
+        return total
+
+    def f2(self, S):
+        """
+        Objective function F2: Sum of decremented thresholds based on neighbors in S.
+
+        :param S: The seed set.
+        :return: The total value of the objective function across all nodes.
+        """
+        total = 0
+        for v in range(self.graph.vcount()):
+            neighbors_in_S = list(set(self.graph.neighbors(v)).intersection(S))
+            d_v = self.graph.degree(v)
+            threshold = math.ceil(d_v / 2)
+            for i in range(1, len(neighbors_in_S) + 1):
+                total += max(threshold - i + 1, 0)
+        return total
+
+    def f3(self, S):
+        """
+        Objective function F3: Weighted sum based on neighbors in S and degree.
+
+        :param S: The seed set.
+        :return: The total value of the objective function across all nodes.
+        """
+        total = 0
+        for v in range(self.graph.vcount()):
+            neighbors_in_S = list(set(self.graph.neighbors(v)).intersection(S))
+            d_v = self.graph.degree(v)
+            threshold = math.ceil(d_v / 2)
+            for i in range(1, len(neighbors_in_S) + 1):
+                denom = d_v - i + 1
+                term = (threshold - i + 1) / denom if denom != 0 else 0
+                total += max(term, 0)
+        return total
+
+    def csg(self, select_cost=CostFuncType.RANDOM, select_goal_fun=GoalFuncType.F1):
+        """
+        Compute the seed set using the Cost-Sensitive Greedy (CSG) algorithm.
+
+        :param select_cost: The cost function type (RANDOM, DEGREE, CUSTOM).
+        :param select_goal_fun: The objective function type (F1, F2, F3).
+        """
+        if select_cost not in Graph.CostFuncType or select_goal_fun not in Graph.GoalFuncType:
             return
 
         match select_cost:
-            case 1:
-                cost_fun = cost1
-            case 2:
-                cost_fun = cost2
-            case 3:
-                cost_fun = cost3
+            case Graph.CostFuncType.RANDOM:
+                cost_fun = self.cost_func_random
+            case Graph.CostFuncType.DEGREE:
+                cost_fun = self.cost_func_degree
+            case Graph.CostFuncType.CUSTOM:
+                cost_fun = self.cost_func_custom
             case _:
                 return
 
         match select_goal_fun:
-            case 1:
-                obj_fun = f1
-            case 2:
-                obj_fun = f2
-            case 3:
-                obj_fun = f3
+            case Graph.GoalFuncType.F1:
+                obj_fun = self.f1
+            case Graph.GoalFuncType.F2:
+                obj_fun = self.f2
+            case Graph.GoalFuncType.F3:
+                obj_fun = self.f3
             case _:
                 return
 
         # Calculate the seed set
-        V = list(range(self.graph.vcount()))
+        V = self.graph.vs["name"]
 
         # Insieme S_p=S_d=Empty
         S_p = set()
@@ -77,21 +234,26 @@ class Graph:
 
             S_p = S_d.copy()
             S_d.add(u)
-            print(f"Dimensione S_p: {len(S_p)}")
 
         self.seedSet = list(S_p)
 
-    def wtss(self, select_cost=1):
-        if select_cost > 3 or select_cost < 0:
+    def wtss(self, select_cost=CostFuncType.RANDOM):
+        """
+        Compute the seed set using the Weak-Tie Seed Selection (WTSS) algorithm.
+
+        :param select_cost: The cost function type (RANDOM, DEGREE, CUSTOM).
+        """
+
+        if select_cost not in Graph.CostFuncType:
             return
 
         match select_cost:
-            case 1:
-                cost_fun = cost1
-            case 2:
-                cost_fun = cost2
-            case 3:
-                cost_fun = cost3
+            case Graph.CostFuncType.RANDOM:
+                cost_fun = self.cost_func_random
+            case Graph.CostFuncType.DEGREE:
+                cost_fun = self.cost_func_degree
+            case Graph.CostFuncType.CUSTOM:
+                cost_fun = self.cost_func_custom
             case _:
                 return
 
@@ -99,21 +261,22 @@ class Graph:
 
         thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
 
-        V = list(range(self.graph.vcount()))
+        V = self.graph.vs["name"]
+
         U = set(V)
         S = set()
 
         # Stato dinamico
-        delta = {v: self.graph.degree(v) for v in V}  # δ(v)
-        k = {v: thresholds[v] for v in V}  # k(v)
-        N = {v: set(self.graph.neighbors(v)) for v in V}  # N(v)
+        delta = {v: self.graph.degree(v) for v in V}  # δ(v) -> grado
+        k = {v: thresholds[v] for v in V}  # k(v) -> threshold
+        neighbors = {v: set(self.graph.neighbors(v)) for v in V}  # neighbors(v) -> Vicini
 
         while U:
             # Case 1: nodo già attivabile
             activated = [v for v in U if k[v] == 0]
             if activated:
                 v = activated[0]
-                for u in N[v]:
+                for u in neighbors[v]:
                     if u in U:
                         k[u] = max(0, k[u] - 1)
             else:
@@ -122,7 +285,7 @@ class Graph:
                 if weak:
                     v = weak[0]
                     S.add(v)
-                    for u in N[v]:
+                    for u in neighbors[v]:
                         if u in U:
                             k[u] = max(0, k[u] - 1)
                 else:
@@ -135,15 +298,22 @@ class Graph:
                     v = min(U, key=score)
 
             # Rimuovi v da U e aggiorna grafo dinamico
-            for u in N[v]:
+            for u in neighbors[v]:
                 if u in U:
                     delta[u] -= 1
-                    N[u].discard(v)
+                    neighbors[u].discard(v)
             U.remove(v)
 
         self.seedSet = S
 
     def calc_seed_set(self, method, *args, **kwargs):
+        """
+        Calculate the seed set using the specified method.
+
+        :param method: The algorithm to use ('csg' or 'wtss').
+        :param args: Positional arguments for the method.
+        :param kwargs: Keyword arguments for the method.
+        """
         if method == 'csg' :
             self.csg(**kwargs)
         elif method == 'wtss' :
@@ -153,9 +323,20 @@ class Graph:
             return
 
 
-    def get_seed_set(self): return self.seedSet
+    def get_seed_set(self):
+        """
+        Retrieve the computed seed set.
+
+        :return: The seed set as a list or set, or None if not computed.
+        """
+        return self.seedSet
 
     def calc_majority_cascade(self):
+        """
+        Compute the majority cascade starting from the seed set.
+
+        Requires the seed set to be computed first.
+        """
         if self.seedSet is None: return #Error
 
         # Calc majority cascade
@@ -183,15 +364,28 @@ class Graph:
 
         self.cascade = cascade
 
-    def get_majority_cascade(self): return self.cascade
+    def get_majority_cascade(self):
+        """
+        Retrieve the computed majority cascade.
+
+        :return: A list of sets representing the cascade steps, or None if not computed.
+        """
+        return self.cascade
 
     def print_majority_cascade(self):
+        """
+        Print the majority cascade steps with sorted node lists.
+        """
         for t, influenced in enumerate(self.cascade):
             print(f"Inf[S, {t}] = {sorted(influenced)}")
 
 
     def save_plot(self, filename:str):
+        """
+        Save a visual representation of the graph to a file.
 
+        :param filename: The name of the file to save the plot (without path).
+        """
         layout = self.graph.layout("fr")  # Fruchterman-Reingold
 
         ig.plot(
@@ -204,6 +398,9 @@ class Graph:
         )
 
     def plot_majority_cascade(self):
+        """
+        Plot the evolution of the majority cascade over time.
+        """
         x = list(range(len(self.cascade)))  # Indici: 0, 1, 2, ...
         y = [len(s) for s in self.cascade]  # Cardinalità di ogni set
 
