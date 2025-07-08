@@ -1,8 +1,13 @@
 import matplotlib.pyplot as plt
+from matplotlib import cm
 import igraph as ig
 import random
 from enum import Enum
 import math
+import os
+from PIL import Image
+import glob
+from pyvis.network import Network
 
 
 def cost_seed_set(S, cost):
@@ -14,6 +19,7 @@ def cost_seed_set(S, cost):
     :return: The total cost of the seed set.
     """
     return sum(cost(u) for u in S)
+
 
 def marginal_gain(v, S, fi):
     """
@@ -29,6 +35,8 @@ def marginal_gain(v, S, fi):
     return fi(S_with_v) - fi(S)
 
 # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
+
+
 def argmax(V, S, f, cost_function, **kwargs):
     """
     Select the node with the highest marginal gain to cost ratio.
@@ -41,6 +49,7 @@ def argmax(V, S, f, cost_function, **kwargs):
     :return: The node with the best marginal gain / cost ratio.
     """
     return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / cost_function(v, **kwargs))
+
 
 def get_subgraph(graph: ig.Graph, number: int):
     """
@@ -78,7 +87,7 @@ class Graph:
         F2 = 2
         F3 = 3
 
-    def __init__(self, filePath: str, budget: int, save_path:str, is_sub_graph=True, sub_graph_dim=100):
+    def __init__(self, filePath: str, budget: int, save_path: str, is_sub_graph=True, sub_graph_dim=100):
         """
         Initialize a Graph object with a graph loaded from a file.
 
@@ -93,7 +102,7 @@ class Graph:
 
         self.graph = self.full_graph
 
-        if is_sub_graph :
+        if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
 
         if budget > self.graph.vcount():
@@ -127,7 +136,8 @@ class Graph:
         :raises TypeError: If nodeLabel is not an integer.
         """
         if not isinstance(nodeLabel, int):
-            raise TypeError(f"COst func degree type mismatch -> nodeLabel is {type(nodeLabel)}")
+            raise TypeError(
+                f"COst func degree type mismatch -> nodeLabel is {type(nodeLabel)}")
         node = self.graph.vs.find(name=nodeLabel)
         return node.degree() / 2
 
@@ -220,7 +230,7 @@ class Graph:
 
         # Calculate the seed set
         V = self.graph.vs["name"]
-        #print(f"Node set: {V}")
+        # print(f"Node set: {V}")
         # Insieme S_p=S_d=Empty
         S_p = set()
         S_d = set()
@@ -258,20 +268,23 @@ class Graph:
             case _:
                 return
 
-        #select_threshold = 1 #TODO: Define functions
+        # select_threshold = 1 #TODO: Define functions
 
-        #thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
+        # thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
 
         V = self.graph.vs["name"]
 
         U = set(V)
         S = set()
-        thresholds = {v: max(1, self.graph.vs.find(name=v).degree() // 2) for v in V}
+        thresholds = {v: max(1, self.graph.vs.find(
+            name=v).degree() // 2) for v in V}
 
         # Stato dinamico
-        delta = {v: self.graph.vs.find(name=v).degree() for v in V}  # δ(v) -> grado
+        delta = {v: self.graph.vs.find(name=v).degree()
+                 for v in V}  # δ(v) -> grado
         k = {v: thresholds[v] for v in V}  # k(v) -> threshold
-        neighbors = {v: set(x["name"] for x in self.graph.vs.find(name=v).neighbors()) for v in V}  # neighbors(v) -> Vicini
+        neighbors = {v: set(x["name"] for x in self.graph.vs.find(
+            name=v).neighbors()) for v in V}  # neighbors(v) -> Vicini
 
         while U:
             # Case 1: nodo già attivabile
@@ -303,7 +316,7 @@ class Graph:
             for u in neighbors[v]:
                 if u in U:
                     delta[u] -= 1
-                    neighbors[u].discard(v)       
+                    neighbors[u].discard(v)
             U.remove(v)
         self.seedSet = S
 
@@ -315,14 +328,13 @@ class Graph:
         :param args: Positional arguments for the method.
         :param kwargs: Keyword arguments for the method.
         """
-        if method == 'csg' :
+        if method == 'csg':
             self.csg(**kwargs)
-        elif method == 'wtss' :
+        elif method == 'wtss':
             self.wtss(**kwargs)
         else:
             print("Hai sbagliato HAHAHAHA")
             return
-
 
     def get_seed_set(self):
         """
@@ -338,7 +350,8 @@ class Graph:
 
         Requires the seed set to be computed first.
         """
-        if self.seedSet is None: return #Error
+        if self.seedSet is None:
+            return  # Error
 
         # Calc majority cascade
         V = set(range(self.graph.vcount()))
@@ -378,10 +391,10 @@ class Graph:
         Print the majority cascade steps with sorted node lists.
         """
         for t, influenced in enumerate(self.cascade):
-            print(f"Inf[S, {t}] = {sorted(influenced)}; |Inf[S, {t}]| = {len(influenced)}\n")
+            print(
+                f"Inf[S, {t}] = {sorted(influenced)}; |Inf[S, {t}]| = {len(influenced)}\n")
 
-
-    def save_plot(self, filename:str):
+    def save_plot(self, filename: str):
         """
         Save a visual representation of the graph to a file.
 
@@ -412,4 +425,52 @@ class Graph:
         plt.grid(True)
         plt.show()
 
+    def dyn_plot_cascade(self):
+        layout = self.graph.layout("fr")
+        
+        max_step = len(self.cascade)
+        colormap = cm.get_cmap("plasma", max_step + 1)
+        
+        def rgba_to_hex(rgba):
+            r, g, b, _ = rgba
+            return '#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255))
+        
+        output_dir = "plots/test"
+        
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # calcola cumulativamente i nodi attivi fino a ciascuno step
+        cascata_cumulativa = []
+        attivi = set()
+        for step in self.cascade:
+            attivi |= step
+            cascata_cumulativa.append(attivi.copy())
+            
+        for t, attivi in enumerate(cascata_cumulativa):
+            colors = []
+            for v in range(self.graph.vcount()):
+                if v in attivi:
+                    c = colormap(t)  # colore secondo lo step corrente
+                    c_hex = rgba_to_hex(c)
+                else:
+                    c_hex = "#dddddd"  # grigio per non attivati
+                colors.append(c_hex)
 
+            ig.plot(
+                self.graph,
+                target=f"{output_dir}/step_{t:02d}.png",
+                layout=layout,
+                vertex_color=colors,
+                vertex_size=8,
+                #vertex_label=[str(v.index) for v in self.graph.vs],
+                bbox=(3000, 3000),
+                margin=40,
+            )
+        images = [Image.open(f) for f in sorted(glob.glob("plots/test/step_*.png"))]
+        images[0].save(
+            "diffusione.gif",
+            save_all=True,
+            append_images=images[1:],
+            duration=1000,  # durata di ogni frame in millisecondi
+            loop=0
+        )
