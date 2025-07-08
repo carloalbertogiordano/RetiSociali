@@ -1,4 +1,3 @@
-import os
 from Graph.utilFuncs.goal_function import *
 from Graph.utilFuncs.cost_function import *
 import matplotlib.pyplot as plt
@@ -40,7 +39,7 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
-    def calc_seed_set(self, select_cost=1, select_goal_fun=1):
+    def csg(self, select_cost=1, select_goal_fun=1):
         if select_cost > 3 or select_cost < 0 or select_goal_fun > 3 or select_goal_fun < 0:
             return
 
@@ -64,8 +63,7 @@ class Graph:
             case _:
                 return
 
-
-        #Calculate the seed set
+        # Calculate the seed set
         V = list(range(self.graph.vcount()))
 
         # Insieme S_p=S_d=Empty
@@ -82,6 +80,78 @@ class Graph:
             print(f"Dimensione S_p: {len(S_p)}")
 
         self.seedSet = list(S_p)
+
+    def wtss(self, select_cost=1):
+        if select_cost > 3 or select_cost < 0:
+            return
+
+        match select_cost:
+            case 1:
+                cost_fun = cost1
+            case 2:
+                cost_fun = cost2
+            case 3:
+                cost_fun = cost3
+            case _:
+                return
+
+        select_threshold = 1 #TODO: Define functions
+
+        thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
+
+        V = list(range(self.graph.vcount()))
+        U = set(V)
+        S = set()
+
+        # Stato dinamico
+        delta = {v: self.graph.degree(v) for v in V}  # δ(v)
+        k = {v: thresholds[v] for v in V}  # k(v)
+        N = {v: set(self.graph.neighbors(v)) for v in V}  # N(v)
+
+        while U:
+            # Case 1: nodo già attivabile
+            activated = [v for v in U if k[v] == 0]
+            if activated:
+                v = activated[0]
+                for u in N[v]:
+                    if u in U:
+                        k[u] = max(0, k[u] - 1)
+            else:
+                # Case 2: nodo non attivabile, ma troppo debole
+                weak = [v for v in U if delta[v] < k[v]]
+                if weak:
+                    v = weak[0]
+                    S.add(v)
+                    for u in N[v]:
+                        if u in U:
+                            k[u] = max(0, k[u] - 1)
+                else:
+                    # Case 3: scegli nodo ottimale da eliminare
+                    def score(u):
+                        if delta[u] == 0:
+                            return float('inf')
+                        return cost_fun(u) * k[u] / (delta[u] * (delta[u] + 1))
+
+                    v = min(U, key=score)
+
+            # Rimuovi v da U e aggiorna grafo dinamico
+            for u in N[v]:
+                if u in U:
+                    delta[u] -= 1
+                    N[u].discard(v)
+            U.remove(v)
+
+        self.seedSet = S
+
+    def calc_seed_set(self, method, *args, **kwargs):
+        if method == 'csg' :
+            self.csg(**kwargs)
+        elif method == 'wtss' :
+            self.wtss(**kwargs)
+        else:
+            print("Hai sbagliato HAHAHAHA")
+            return
+
 
     def get_seed_set(self): return self.seedSet
 
