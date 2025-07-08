@@ -53,17 +53,8 @@ def main():
     print(f"Seed set: {seed_set}")
 
     cascade = majority_cascade(get_subgraph(g, 300), seed_set)
-<<<<<<< Updated upstream
-    # print(cascade)
-    # print(type(cascade))
-
-=======
-    plot_majority_cascade(cascade)
-    #print(cascade)
-    #print(type(cascade))
-
-    
->>>>>>> Stashed changes
+    print(cascade)
+    print(type(cascade))
     for t, influenced in enumerate(cascade):
         print(f"Inf[S, {t}] = {sorted(influenced)}")
 
