@@ -1,31 +1,21 @@
-import igraph as ig
+from Graph.graph import Graph
 import os
-from utils.graphUtils import *
-from csg import cost_seeds_greedy
-from utils.goal_function import *
-from utils.cost_function import *
-from utils.plotUtils import *
-from utils.majority_cascade import *
 
 def main():
-    filepath = os.path.join(os.path.dirname(__file__),
-                            'graphs/facebook_data/facebook_combined.txt')
-    g = ig.Graph.Read_Edgelist(filepath, directed=False)
+    graph = Graph('graphs/facebook_data/facebook_combined.txt',
+                  30,
+                  'graphs/',
+                  is_sub_graph=True,
+                  sub_graph_dim=30)
+    graph.calc_seed_set(select_cost=1, select_goal_fun=1)
+    print(graph.get_seed_set())
 
-    print(f"Grafo caricato: {g.vcount()} nodi, {g.ecount()} archi.")
+    graph.calc_majority_cascade()
+    graph.print_majority_cascade()
 
-    seed_set = cost_seeds_greedy(get_subgraph(g, 300), 300, cost1, f1)
-    seed_set.sort()
-    print(f"Seed set: {seed_set}")
+    graph.plot_majority_cascade()
 
-    cascade = majority_cascade(get_subgraph(g, 300), seed_set)
-    print(cascade)
-    print(type(cascade))
-    for t, influenced in enumerate(cascade):
-        print(f"Inf[S, {t}] = {sorted(influenced)}")
-
-    # save_plot(g, "graphs/images/test2.png")
-
+    graph.save_plot('test.png')
 
 if __name__ == '__main__':
     main()
