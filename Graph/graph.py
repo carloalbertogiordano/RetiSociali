@@ -29,7 +29,7 @@ def marginal_gain(v, S, fi):
     return fi(S_with_v) - fi(S)
 
 # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
-def argmax(V, S, f, cost_function, g):
+def argmax(V, S, f, cost_function, **kwargs):
     """
     Select the node with the highest marginal gain to cost ratio.
 
@@ -40,7 +40,7 @@ def argmax(V, S, f, cost_function, g):
     :param g: The graph object.
     :return: The node with the best marginal gain / cost ratio.
     """
-    return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / cost_function(v))
+    return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / cost_function(v, **kwargs))
 
 def get_subgraph(graph: ig.Graph, number: int):
     """
@@ -104,7 +104,7 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
-    def cost_func_random(rangeLow=1, rangeMax=10):
+    def cost_func_random(self, v, rangeLow=1, rangeMax=10):
         """
         Generate a random cost for a node within a specified range.
 
@@ -228,7 +228,7 @@ class Graph:
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
         while cost_seed_set(S_d, cost_fun) <= self.budget:
             # print(f"Costo di S {cost_seed_set(S_d, cost_fn)}, k={k}")
-            u = argmax(V, S_d, obj_fun, cost_fun, self.graph)
+            u = argmax(V, S_d, obj_fun, cost_fun)
 
             S_p = S_d.copy()
             S_d.add(u)
