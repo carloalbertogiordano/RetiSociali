@@ -1,6 +1,4 @@
 import igraph as ig
-import os
-import random
 
 
 def get_subgraph(graph: ig.Graph, number: int):
