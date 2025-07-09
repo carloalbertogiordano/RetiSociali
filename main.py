@@ -8,7 +8,7 @@ def main():
     # Input parameters
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 100
+    sub_graph_dim = 300
 
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)

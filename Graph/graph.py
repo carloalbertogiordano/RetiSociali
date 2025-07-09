@@ -201,7 +201,7 @@ class Graph:
 
             S_p = S_d.copy()
             S_d.add(u)
-            print(f"Seed set (d): {S_d}")
+            print(f"Seed set (d): {S_d}, DIM{len(S_d)}")
         print(f"Seed set (p): {S_p}")
         self.seedSet = list(S_p)
 
@@ -261,6 +261,7 @@ class Graph:
                     neighbors[u].discard(v)
             U.remove(v)
         self.seedSet = S
+        print(f"Len seed set {len(self.seedSet)}")
 
     def calc_seed_set(self, method, *args, **kwargs):
         """
@@ -292,27 +293,27 @@ class Graph:
         Requires the seed set to be computed first.
         """
         if self.seedSet is None:
-            return  # Error
+            return
 
-        # Calc majority cascade
-        #V = set(range(self.graph.vcount()))
         V = set(self.graph.vs["name"])
-        print(f"Vertex set: {V}")        
-        cascade = []  # lista Inf[S,0], Inf[S,1], ...
-        
-        prev_influenced = set([x for x in self.seedSet])
-        print(f"Prev influenced (Seed set): {prev_influenced}")
+        cascade = []
+
+        prev_influenced = set(self.seedSet)
         cascade.append(prev_influenced.copy())
 
-        print(f"V-Seedset = {V-prev_influenced}")
         while True:
             new_influenced = prev_influenced.copy()
 
             for v in V - prev_influenced:
-                neighbors = self.graph.vs.find(name=v).neighbors()
-                active_neighbors = sum(
-                    1 for u in neighbors if u in prev_influenced)
-                if active_neighbors >= math.ceil(self.graph.vs.find(name=v).degree() / 2):
+                vertex = self.graph.vs.find(name=v)
+                # prendo la lista di name dei vicini
+                neighbor_names = [nbr["name"] for nbr in vertex.neighbors()]
+
+                # conto quanti di questi sono già influenzati
+                active_neighbors = sum(1 for nbr in neighbor_names if nbr in prev_influenced)
+
+                threshold = math.ceil(vertex.degree() / 2)
+                if active_neighbors >= threshold:
                     new_influenced.add(v)
 
             cascade.append(new_influenced.copy())
