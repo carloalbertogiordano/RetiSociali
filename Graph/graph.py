@@ -357,7 +357,7 @@ class Graph:
             bbox=(2000, 2000),
         )
 
-    def plot_majority_cascade(self):
+    def plot_majority_cascade(self, test_name: str):
         """
         Plot the evolution of the majority cascade over time.
         """
@@ -367,7 +367,7 @@ class Graph:
         plt.plot(x, y, marker='o')
         plt.xlabel("Indice del passo nella cascata")
         plt.ylabel("Numero di nodi (len del set)")
-        plt.title("Evoluzione della cascata")
+        plt.title(f"Evoluzione della cascata per {test_name}")
         plt.grid(True)
         plt.show()
 

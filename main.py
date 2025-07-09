@@ -8,12 +8,12 @@ def main():
     # Input parameters
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 300
+    sub_graph_dim = 500
 
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-    '''
+
     # CSG: RANDOM, F1
     print("Running CSG with Cost: RANDOM, Goal: F1")
     test_name = "CSG_random_f1"
@@ -24,7 +24,7 @@ def main():
     print(f"Seed set (CSG, RANDOM, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_RANDOM_F1.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -39,7 +39,7 @@ def main():
     print(f"Seed set (CSG, RANDOM, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_RANDOM_F2.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -54,12 +54,12 @@ def main():
     print(f"Seed set (CSG, RANDOM, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_RANDOM_F3.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
 
-    '''
+
     # CSG: DEGREE, F1
     print("Running CSG with Cost: DEGREE, Goal: F1")
     test_name = "CSG_degree_f1"
@@ -70,12 +70,12 @@ def main():
     print(f"Seed set (CSG, DEGREE, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_DEGREE_F1.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
 
-    """# CSG: DEGREE, F2
+    # CSG: DEGREE, F2
     print("Running CSG with Cost: DEGREE, Goal: F2")
     test_name = "CSG_degree_f2"
     print("#############################################################")
@@ -85,7 +85,7 @@ def main():
     print(f"Seed set (CSG, DEGREE, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_DEGREE_F2.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -100,12 +100,13 @@ def main():
     print(f"Seed set (CSG, DEGREE, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_DEGREE_F3.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")"""
+    print("#############################################################")
 
-    """# CSG: CUSTOM, F1
+    '''
+    # CSG: CUSTOM, F1
     print("Running CSG with Cost: CUSTOM, Goal: F1")
     test_name = "CSG_custo_f1"
     print("#############################################################")
@@ -115,7 +116,7 @@ def main():
     print(f"Seed set (CSG, CUSTOM, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_CUSTOM_F1.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -130,7 +131,7 @@ def main():
     print(f"Seed set (CSG, CUSTOM, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_CUSTOM_F2.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -145,12 +146,13 @@ def main():
     print(f"Seed set (CSG, CUSTOM, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testCSG_CUSTOM_F3.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")"""
+    print("#############################################################")
+    '''
 
-    """# WTSS: RANDOM
+    # WTSS: RANDOM
     print("Running WTSS with Cost: RANDOM")
     test_name = "WTSS_random"
     print("#############################################################")
@@ -160,10 +162,11 @@ def main():
     print(f"Seed set (WTSS, RANDOM): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testWTSS_RANDOM.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")"""
+    print("#############################################################")
+
 
     # WTSS: DEGREE
     print("Running WTSS with Cost: DEGREE")
@@ -175,7 +178,7 @@ def main():
     print(f"Seed set (WTSS, DEGREE): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testWTSS_DEGREE.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
@@ -190,7 +193,7 @@ def main():
     print(f"Seed set (WTSS, CUSTOM): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
+    graph.plot_majority_cascade(test_name)
     graph.save_plot('testWTSS_CUSTOM.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")"""
