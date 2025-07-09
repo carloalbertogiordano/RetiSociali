@@ -8,17 +8,7 @@ import os
 from PIL import Image
 import glob
 from pyvis.network import Network
-
-
-def cost_seed_set(S, cost):
-    """
-    Calculate the total cost of the seed set by summing the cost of each node.
-
-    :param S: The seed set, a collection of nodes.
-    :param cost: A function that returns the cost of a node.
-    :return: The total cost of the seed set.
-    """
-    return sum(cost(u) for u in S)
+from cost_functions import base as cost_func_base
 
 
 def marginal_gain(v, S, fi):
@@ -33,23 +23,6 @@ def marginal_gain(v, S, fi):
     """
     S_with_v = S.union({v})
     return fi(S_with_v) - fi(S)
-
-# Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
-
-
-def argmax(V, S, f, cost_function, **kwargs):
-    """
-    Select the node with the highest marginal gain to cost ratio.
-
-    :param V: The set of all nodes in the graph.
-    :param S: The current seed set.
-    :param f: The objective function to evaluate the seed set.
-    :param cost_function: The function to compute the cost of a node.
-    :param g: The graph object.
-    :return: The node with the best marginal gain / cost ratio.
-    """
-    return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / cost_function(v, **kwargs))
-
 
 def get_subgraph(graph: ig.Graph, number: int):
     """
@@ -77,27 +50,23 @@ def get_subgraph(graph: ig.Graph, number: int):
 
 class Graph:
 
-    class CostFuncType(Enum):
-        RANDOM = 1
-        DEGREE = 2
-        CUSTOM = 3
-
     class GoalFuncType(Enum):
         F1 = 1
         F2 = 2
         F3 = 3
 
-    def __init__(self, filePath: str, budget: int, save_path: str, is_sub_graph=True, sub_graph_dim=100):
+    def __init__(self, file_path: str, budget: int, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100):
         """
         Initialize a Graph object with a graph loaded from a file.
 
-        :param filePath: Path to the edge list file defining the graph.
+        :param file_path: Path to the edge list file defining the graph.
         :param budget: The maximum allowable cost for the seed set.
         :param save_path: Directory path to save output plots.
+        :param cost_func: The cost function to be applied
         :param is_sub_graph: If True, use a subgraph instead of the full graph.
         :param sub_graph_dim: Number of nodes in the subgraph if is_sub_graph is True.
         """
-        self.full_graph = ig.Graph.Read_Edgelist(filePath, directed=False)
+        self.full_graph = ig.Graph.Read_Edgelist(file_path, directed=False)
         self.full_graph.vs["name"] = list(range(self.full_graph.vcount()))
 
         self.graph = self.full_graph
@@ -108,48 +77,37 @@ class Graph:
         if budget > self.graph.vcount():
             budget = self.graph.vcount()
 
+        if not isinstance(cost_func, cost_func_base.CostFunction):
+            raise ValueError(f"Cost func is {type(cost_func)}, expected subclass of CostFunction")
+        self.cost_fun = cost_func.calculate_cost
+
         self.budget = budget
         self.save_path = save_path
         self.seedSet = None
         self.cascade = None
 
-    def cost_func_random(self, nodeLabel, rangeLow=1, rangeMax=10):
+    def cost_seed_set(self, S, cost):
         """
-        Generate a random cost for a node within a specified range.
+        Calculate the total cost of the seed set by summing the cost of each node.
 
-        :param nodeLabel: The label (name) of the node (ignored).
-        :param rangeLow: Lower bound of the random cost range (default: 1).
-        :param rangeMax: Upper bound of the random cost range (default: 10).
-        :return: A random integer cost between rangeLow and rangeMax.
-        :raises TypeError: If rangeLow or rangeMax are not integers.
+        :param S: The seed set, a collection of nodes.
+        :param cost: A function that returns the cost of a node.
+        :return: The total cost of the seed set.
         """
-        if not isinstance(rangeLow, int) or not isinstance(rangeMax, int):
-            raise TypeError(f"Cost function parameter type mismatch -> "
-                            f"rangeLow is {type(rangeLow)} rangeMax is {type(rangeMax)}")
-        return random.randint(rangeLow, rangeMax)
+        return sum(cost(node_label=u, graph=self.graph) for u in S)
 
-    def cost_func_degree(self, nodeLabel: int):
+    # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
+    def argmax(self, V, S, f, **kwargs):
         """
-        Compute the cost of a node based on its degree.
+        Select the node with the highest marginal gain to cost ratio.
 
-        :param nodeLabel: The label (name) of the node.
-        :return: The node's degree divided by 2.
-        :raises TypeError: If nodeLabel is not an integer.
+        :param V: The set of all nodes in the graph.
+        :param S: The current seed set.
+        :param f: The objective function to evaluate the seed set.
+        :param cost_function: The function to compute the cost of a node.
+        :return: The node with the best marginal gain / cost ratio.
         """
-        if not isinstance(nodeLabel, int):
-            raise TypeError(
-                f"COst func degree type mismatch -> nodeLabel is {type(nodeLabel)}")
-        node = self.graph.vs.find(name=nodeLabel)
-        return node.degree() / 2
-
-    def cost_func_custom(self, nodeLabel: int):
-        """
-        Placeholder for a custom cost function.
-
-        :param nodeLabel: The label (name) of the node.
-        :return: A cost value (currently returns 0 as a placeholder).
-        """
-        return self.cost_func_random(None, rangeLow=10, rangeMax=1000)  # TODO: Creare una funzione ad hoc
+        return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / self.cost_fun(node_label=v, graph=self.graph))
 
     def f1(self, S):
         """
@@ -199,25 +157,12 @@ class Graph:
                 total += max(term, 0)
         return total
 
-    def csg(self, select_cost=CostFuncType.RANDOM, select_goal_fun=GoalFuncType.F1):
+    def csg(self, select_goal_fun=GoalFuncType.F1):
         """
         Compute the seed set using the Cost-Sensitive Greedy (CSG) algorithm.
 
-        :param select_cost: The cost function type (RANDOM, DEGREE, CUSTOM).
         :param select_goal_fun: The objective function type (F1, F2, F3).
         """
-        if select_cost not in Graph.CostFuncType or select_goal_fun not in Graph.GoalFuncType:
-            return
-
-        match select_cost:
-            case Graph.CostFuncType.RANDOM:
-                cost_fun = self.cost_func_random
-            case Graph.CostFuncType.DEGREE:
-                cost_fun = self.cost_func_degree
-            case Graph.CostFuncType.CUSTOM:
-                cost_fun = self.cost_func_custom
-            case _:
-                return
 
         match select_goal_fun:
             case Graph.GoalFuncType.F1:
@@ -237,10 +182,10 @@ class Graph:
         S_d = set()
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
-        while cost_seed_set(S_d, cost_fun) <= self.budget:
-            print(f" Cost seed set: {cost_seed_set(S_d, cost_fun)}")
-            # print(f"Costo di S {cost_seed_set(S_d, cost_fn)}, k={k}")
-            u = argmax(V, S_d, obj_fun, cost_fun)
+        while self.cost_seed_set(S_d, self.cost_fun) <= self.budget:
+            print(f" Cost seed set: {self.cost_seed_set(S_d, self.cost_fun)}")
+            # print(f"Costo di S {self.cost_seed_set(S_d, cost_fn)}, k={k}")
+            u = self.argmax(V, S_d, obj_fun)
             print(f"Selected node: {u}")
 
             S_p = S_d.copy()
@@ -249,25 +194,10 @@ class Graph:
         print(f"Seed set (p): {S_p}")
         self.seedSet = list(S_p)
 
-    def wtss(self, select_cost=CostFuncType.RANDOM):
+    def wtss(self):
         """
         Compute the seed set using the Weak-Tie Seed Selection (WTSS) algorithm.
-
-        :param select_cost: The cost function type (RANDOM, DEGREE, CUSTOM).
         """
-
-        if select_cost not in Graph.CostFuncType:
-            return
-
-        match select_cost:
-            case Graph.CostFuncType.RANDOM:
-                cost_fun = self.cost_func_random
-            case Graph.CostFuncType.DEGREE:
-                cost_fun = self.cost_func_degree
-            case Graph.CostFuncType.CUSTOM:
-                cost_fun = self.cost_func_custom
-            case _:
-                return
 
         # select_threshold = 1 #TODO: Define functions
 
@@ -309,7 +239,7 @@ class Graph:
                     def score(u):
                         if delta[u] == 0:
                             return float('inf')
-                        return cost_fun(u) * k[u] / (delta[u] * (delta[u] + 1))
+                        return self.cost_fun(label=u, graph=self.graph) * k[u] / (delta[u] * (delta[u] + 1))
 
                     v = min(U, key=score)
 
@@ -334,8 +264,7 @@ class Graph:
         elif method == 'wtss':
             self.wtss(**kwargs)
         else:
-            print("Hai sbagliato HAHAHAHA")
-            return
+            raise ValueError("Method must be csg or wtss")
 
     def get_seed_set(self):
         """
@@ -445,6 +374,7 @@ class Graph:
                     │   └── ...
                     └── diffusione.gif
         """
+        return
         layout = self.graph.layout("fr")  # Use force-directed layout for graph positioning
         max_step = len(self.cascade)
         colormap = cm.get_cmap("plasma", max_step + 1)
