@@ -13,7 +13,6 @@ def main():
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
-
     # CSG: RANDOM, F1
     print("Running CSG with Cost: RANDOM, Goal: F1")
     test_name = "CSG_random_f1"
@@ -58,7 +57,6 @@ def main():
     graph.save_plot('testCSG_RANDOM_F3.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
-
 
     # CSG: DEGREE, F1
     print("Running CSG with Cost: DEGREE, Goal: F1")
@@ -166,7 +164,6 @@ def main():
     graph.save_plot('testWTSS_RANDOM.png')
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
-
 
     # WTSS: DEGREE
     print("Running WTSS with Cost: DEGREE")

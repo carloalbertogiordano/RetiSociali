@@ -128,9 +128,9 @@ class Graph:
                 :return: The total value of the objective function across all nodes.
                 """
         total = 0
-        for v in range(self.graph.vcount()):
-            neighbors_in_S = set(self.graph.neighbors(v)).intersection(S)
-            threshold = math.ceil(self.graph.degree(v) / 2)
+        for v in self.graph.vs["name"]:
+            neighbors_in_S = set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S)
+            threshold = math.ceil(self.graph.vs.find(name=v).degree() / 2)
             total += min(len(neighbors_in_S), threshold)
         return total
 
@@ -142,9 +142,9 @@ class Graph:
         :return: The total value of the objective function across all nodes.
         """
         total = 0
-        for v in range(self.graph.vcount()):
-            neighbors_in_S = list(set(self.graph.neighbors(v)).intersection(S))
-            d_v = self.graph.degree(v)
+        for v in self.graph.vs["name"]:
+            neighbors_in_S = list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
+            d_v = self.graph.vs.find(name=v).degree()
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 total += max(threshold - i + 1, 0)
@@ -158,9 +158,9 @@ class Graph:
         :return: The total value of the objective function across all nodes.
         """
         total = 0
-        for v in range(self.graph.vcount()):
-            neighbors_in_S = list(set(self.graph.neighbors(v)).intersection(S))
-            d_v = self.graph.degree(v)
+        for v in self.graph.vs["name"]:
+            neighbors_in_S = list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
+            d_v = self.graph.vs.find(name=v).degree()
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 denom = d_v - i + 1
