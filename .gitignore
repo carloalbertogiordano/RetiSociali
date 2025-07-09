@@ -96,3 +96,6 @@ http-client.private.env.json
 
 utils/__pycache__
 Graph/__pycache__
+*__pycache__*
+*.jpg
+*.gif
