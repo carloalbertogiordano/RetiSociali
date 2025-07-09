@@ -374,7 +374,6 @@ class Graph:
                     │   └── ...
                     └── diffusione.gif
         """
-        return
         layout = self.graph.layout("fr")  # Use force-directed layout for graph positioning
         max_step = len(self.cascade)
         colormap = cm.get_cmap("plasma", max_step + 1)
