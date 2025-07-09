@@ -97,6 +97,13 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
+    def get_graf(self):
+        return self.graph
+
+    def set_graph(self, graph: ig.Graph):
+        self.graph = graph
+        self.full_graph = graph
+
     def cost_seed_set(self, S, cost):
         """
         Calculate the total cost of the seed set by summing the cost of each node.
