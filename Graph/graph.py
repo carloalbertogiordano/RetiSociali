@@ -426,51 +426,76 @@ class Graph:
         plt.show()
 
     def dyn_plot_cascade(self):
-        layout = self.graph.layout("fr")
-        
+        """
+        Generates a sequence of network plots representing the cumulative activation of nodes
+        over the steps of a cascade process, and compiles them into an animated GIF.
+
+        The cascade is visualized using color intensity to indicate activation time, and
+        non-activated nodes are shown in gray. All output images and the final GIF are saved
+        under a structured directory inside `self.save_path`.
+
+        Output structure:
+        └── self.save_path/
+            └── plots/
+                └── plot_cascade/
+                    ├── images/
+                    │   ├── step_00.png
+                    │   ├── step_01.png
+                    │   └── ...
+                    └── diffusione.gif
+        """
+        layout = self.graph.layout("fr")  # Use force-directed layout for graph positioning
         max_step = len(self.cascade)
         colormap = cm.get_cmap("plasma", max_step + 1)
-        
+
         def rgba_to_hex(rgba):
+            """Convert RGBA color to HEX string (ignore alpha)."""
             r, g, b, _ = rgba
-            return '#{:02x}{:02x}{:02x}'.format(int(r*255), int(g*255), int(b*255))
-        
-        output_dir = "plots/test"
-        
-        os.makedirs(output_dir, exist_ok=True)
-        
-        # calcola cumulativamente i nodi attivi fino a ciascuno step
-        cascata_cumulativa = []
-        attivi = set()
+            return '#{:02x}{:02x}{:02x}'.format(int(r * 255), int(g * 255), int(b * 255))
+
+        # === Centralized directory structure ===
+        base_output_dir = os.path.join(self.save_path, "plots")
+        cascade_dir = os.path.join(base_output_dir, "plot_cascade")
+        images_dir = os.path.join(cascade_dir, "images")
+        gif_path = os.path.join(cascade_dir, "diffusione.gif")
+
+        # Create output directories if they do not exist
+        os.makedirs(images_dir, exist_ok=True)
+
+        # Compute cumulative activated nodes at each cascade step
+        cumulative_cascade = []
+        active_nodes = set()
         for step in self.cascade:
-            attivi |= step
-            cascata_cumulativa.append(attivi.copy())
-            
-        for t, attivi in enumerate(cascata_cumulativa):
+            active_nodes |= step
+            cumulative_cascade.append(active_nodes.copy())
+
+        # Generate one image per step
+        for t, active in enumerate(cumulative_cascade):
             colors = []
             for v in range(self.graph.vcount()):
-                if v in attivi:
-                    c = colormap(t)  # colore secondo lo step corrente
+                if v in active:
+                    c = colormap(t)               # Color based on activation time
                     c_hex = rgba_to_hex(c)
                 else:
-                    c_hex = "#dddddd"  # grigio per non attivati
+                    c_hex = "#dddddd"             # Gray for inactive nodes
                 colors.append(c_hex)
 
             ig.plot(
                 self.graph,
-                target=f"{output_dir}/step_{t:02d}.png",
+                target=os.path.join(images_dir, f"step_{t:02d}.png"),
                 layout=layout,
                 vertex_color=colors,
                 vertex_size=8,
-                #vertex_label=[str(v.index) for v in self.graph.vs],
                 bbox=(3000, 3000),
                 margin=40,
             )
-        images = [Image.open(f) for f in sorted(glob.glob("plots/test/step_*.png"))]
+
+        # Load all generated images and compile into an animated GIF
+        images = [Image.open(f) for f in sorted(glob.glob(os.path.join(images_dir, "step_*.png")))]
         images[0].save(
-            "diffusione.gif",
+            gif_path,
             save_all=True,
             append_images=images[1:],
-            duration=1000,  # durata di ogni frame in millisecondi
+            duration=1000,  # Frame duration in milliseconds
             loop=0
         )

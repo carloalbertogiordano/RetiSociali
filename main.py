@@ -25,11 +25,11 @@ def main():
 
     print("#############################################################")
 
-    graph = Graph('graphs/facebook_data/facebook_combined.txt',
-                  1000,
-                  'graphs/',
+    graph = Graph('sourceData/facebook_data/facebook_combined.txt',
+                  800,
+                  'results/',
                   is_sub_graph=True,
-                  sub_graph_dim=4039)
+                  sub_graph_dim=1000)
     graph.calc_seed_set('wtss', select_cost=Graph.CostFuncType.RANDOM)
     print(
         f"Seed set (CSG): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
