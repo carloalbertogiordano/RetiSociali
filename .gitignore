@@ -99,3 +99,5 @@ Graph/__pycache__
 *__pycache__*
 *.jpg
 *.gif
+results/plots/plot_cascade/images/*.png
+results/images/*.png
