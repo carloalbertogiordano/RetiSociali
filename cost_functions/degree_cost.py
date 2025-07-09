@@ -2,13 +2,12 @@ from cost_functions.base import CostFunction
 
 
 class DegreeCostFunction(CostFunction):
-    def __init__(self, graph):
-        """Initialize with a graph to access node degrees."""
-        self.graph = graph
-
-    def calculate_cost(self, node_label, **kwargs):
+    def calculate_cost(self, **kwargs):
         """Compute the cost based on the node's degree."""
-        if not isinstance(node_label, str):
-            raise TypeError(f"node_label must be a string, got {type(node_label)}")
-        node = self.graph.vs.find(name=node_label)
+        node_label = kwargs.get("node_label")
+        graph = kwargs.get("graph")
+        #node_label = f"{node_label}"
+        print(f"label:{node_label}")
+        print(graph)
+        node = graph.vs.find(name=node_label)
         return node.degree() / 2

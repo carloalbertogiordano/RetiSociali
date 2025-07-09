@@ -13,14 +13,12 @@ class CostFuncType(Enum):
 class CostFunctionFactory:
 
     @staticmethod
-    def create_cost_function(cost_type, graph=None):
+    def create_cost_function(cost_type):
         """Create a cost function instance based on the specified type."""
         if cost_type == CostFuncType.RANDOM:
             return RandomCostFunction()
         elif cost_type == CostFuncType.DEGREE:
-            if graph is None:
-                raise ValueError("Graph is required for DegreeCostFunction")
-            return DegreeCostFunction(graph)
+            return DegreeCostFunction()
         elif cost_type == CostFuncType.CUSTOM:
             return CustomCostFunction()
         else:
