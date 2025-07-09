@@ -66,7 +66,7 @@ class Graph:
         F2 = 2
         F3 = 3
 
-    def __init__(self, file_path: str, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100):
+    def __init__(self, file_path: str, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100, info_name=""):
         """
         Initialize a Graph object with a graph loaded from a file.
 
@@ -94,6 +94,7 @@ class Graph:
 
         #self.budget = budget
         self.save_path = save_path
+        self.info_name=info_name
         self.seedSet = None
         self.cascade = None
 
@@ -364,7 +365,7 @@ class Graph:
             bbox=(2000, 2000),
         )
 
-    def plot_majority_cascade(self, test_name: str):
+    def plot_majority_cascade(self):
         """
         Plot the evolution of the majority cascade over time.
         """
@@ -374,11 +375,11 @@ class Graph:
         plt.plot(x, y, marker='o')
         plt.xlabel("Indice del passo nella cascata")
         plt.ylabel("Numero di nodi (len del set)")
-        plt.title(f"Evoluzione della cascata per {test_name}")
+        plt.title(f"Evoluzione della cascata per {self.info_name}")
         plt.grid(True)
         plt.show()
 
-    def dyn_plot_cascade(self, test_name: str):
+    def dyn_plot_cascade(self):
         """
         Generates a sequence of network plots representing the cumulative activation of nodes
         over the steps of a cascade process, and compiles them into an animated GIF.
@@ -411,7 +412,7 @@ class Graph:
         base_output_dir = os.path.join(self.save_path, "plots")
         cascade_dir = os.path.join(base_output_dir, "plot_cascade")
         images_dir = os.path.join(cascade_dir, "images")
-        gif_path = os.path.join(cascade_dir, f"diffusione_{test_name}.gif")
+        gif_path = os.path.join(cascade_dir, f"diffusione_{self.info_name}.gif")
 
         # Create output directories if they do not exist
         os.makedirs(images_dir, exist_ok=True)
@@ -436,7 +437,7 @@ class Graph:
 
             ig.plot(
                 self.graph,
-                target=os.path.join(images_dir, f"step_{t:02d}_{test_name}.png"),
+                target=os.path.join(images_dir, f"step_{t:02d}_{self.info_name}.png"),
                 layout=layout,
                 vertex_color=colors,
                 vertex_size=8,

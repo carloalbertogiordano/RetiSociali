@@ -1,213 +1,94 @@
-from Graph.graph import Graph
 import os
+from multiprocessing import Process, set_start_method
+from Graph.graph import Graph
 from cost_functions.factory import CostFunctionFactory as Cff
 from cost_functions.factory import CostFuncType as Cft
 
+# Switch between sequential and parallel execution
+USE_MULTIPROCESSING = True
+
+def run_csg(cost_type, goal_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
+    print(f"[CSG] Cost: {cost_type.name}, Goal: {goal_type.name}")
+    cost_func = Cff.create_cost_function(cost_type)
+    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=test_name)
+    graph.set_graph(saved_graph)
+    graph.calc_seed_set('csg', select_goal_fun=goal_type)
+    print(f"Seed set (CSG, {cost_type.name}, {goal_type.name}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
+    graph.calc_majority_cascade()
+    graph.print_majority_cascade()
+    graph.plot_majority_cascade()
+    graph.save_plot(f'testCSG_{cost_type.name}_{goal_type.name}.png')
+    graph.dyn_plot_cascade()
+
+def run_wtss(cost_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
+    print(f"[WTSS] Cost: {cost_type.name}")
+    cost_func = Cff.create_cost_function(cost_type)
+    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=test_name)
+    graph.set_graph(saved_graph)
+    graph.calc_seed_set('wtss')
+    print(f"Seed set (WTSS, {cost_type.name}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
+    graph.calc_majority_cascade()
+    graph.print_majority_cascade()
+    graph.plot_majority_cascade()
+    graph.save_plot(f'testWTSS_{cost_type.name}.png')
+    graph.dyn_plot_cascade()
 
 def main():
-    # Input parameters
+    if USE_MULTIPROCESSING:
+        try:
+            set_start_method('spawn')
+        except RuntimeError:
+            pass
+
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 500
-    saved_graph = None
-
-    # Ensure output directory exists
+    sub_graph_dim = 100
     os.makedirs(output_dir, exist_ok=True)
 
-    # CSG: RANDOM, F1
-    print("Running CSG with Cost: RANDOM, Goal: F1")
-    test_name = "CSG_random_f1"
-    print("#############################################################")
-    fun =Cff.create_cost_function(Cft.RANDOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    saved_graph = graph.get_graf()
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F1)
-    print(f"Seed set (CSG, RANDOM, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_RANDOM_F1.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    # Build the base graph only once and share its structure
+    base_cost = Cff.create_cost_function(Cft.RANDOM)
+    base_graph = Graph(data_file, output_dir, base_cost, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
+    saved_graph = base_graph.get_graf()
 
-    # CSG: RANDOM, F2
-    print("Running CSG with Cost: RANDOM, Goal: F2")
-    test_name = "CSG_random_f2"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.RANDOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F2)
-    print(f"Seed set (CSG, RANDOM, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_RANDOM_F2.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    csg_tasks = [
+        (Cft.RANDOM, Graph.GoalFuncType.F1),
+        (Cft.RANDOM, Graph.GoalFuncType.F2),
+        (Cft.RANDOM, Graph.GoalFuncType.F3),
+        (Cft.DEGREE, Graph.GoalFuncType.F1),
+        (Cft.DEGREE, Graph.GoalFuncType.F2),
+        (Cft.DEGREE, Graph.GoalFuncType.F3),
+    ]
 
-    # CSG: RANDOM, F3
-    print("Running CSG with Cost: RANDOM, Goal: F3")
-    test_name = "CSG_random_f3"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.RANDOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F3)
-    print(f"Seed set (CSG, RANDOM, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_RANDOM_F3.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    wtss_tasks = [ (Cft.RANDOM,), (Cft.DEGREE,) ]
 
-    # CSG: DEGREE, F1
-    print("Running CSG with Cost: DEGREE, Goal: F1")
-    test_name = "CSG_degree_f1"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.DEGREE)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F1)
-    print(f"Seed set (CSG, DEGREE, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_DEGREE_F1.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    processes = []
 
-    # CSG: DEGREE, F2
-    print("Running CSG with Cost: DEGREE, Goal: F2")
-    test_name = "CSG_degree_f2"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.DEGREE)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F2)
-    print(f"Seed set (CSG, DEGREE, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_DEGREE_F2.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    # Launch CSG tasks
+    for cost_type, goal_type in csg_tasks:
+        name = f"CSG_{cost_type.name.lower()}_{goal_type.name.lower()}"
+        args = (cost_type, goal_type, name, data_file, output_dir, sub_graph_dim, saved_graph)
+        if USE_MULTIPROCESSING:
+            p = Process(target=run_csg, args=args)
+            p.start()
+            processes.append(p)
+        else:
+            run_csg(*args)
 
-    # CSG: DEGREE, F3
-    print("Running CSG with Cost: DEGREE, Goal: F3")
-    test_name = "CSG_degree_f3"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.DEGREE)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F3)
-    print(f"Seed set (CSG, DEGREE, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_DEGREE_F3.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    # Launch WTSS tasks
+    for (cost_type,) in wtss_tasks:
+        name = f"WTSS_{cost_type.name.lower()}"
+        args = (cost_type, name, data_file, output_dir, sub_graph_dim, saved_graph)
+        if USE_MULTIPROCESSING:
+            p = Process(target=run_wtss, args=args)
+            p.start()
+            processes.append(p)
+        else:
+            run_wtss(*args)
 
-    '''
-    # CSG: CUSTOM, F1
-    print("Running CSG with Cost: CUSTOM, Goal: F1")
-    test_name = "CSG_custo_f1"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.CUSTOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F1)
-    print(f"Seed set (CSG, CUSTOM, F1): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_CUSTOM_F1.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
-
-    # CSG: CUSTOM, F2
-    print("Running CSG with Cost: CUSTOM, Goal: F2")
-    test_name = "CSG_custom_f2"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.CUSTOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F2)
-    print(f"Seed set (CSG, CUSTOM, F2): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_CUSTOM_F2.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
-
-    # CSG: CUSTOM, F3
-    print("Running CSG with Cost: CUSTOM, Goal: F3")
-    test_name = "CSG_custom_f3"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.CUSTOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=Graph.GoalFuncType.F3)
-    print(f"Seed set (CSG, CUSTOM, F3): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testCSG_CUSTOM_F3.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
-    '''
-
-    # WTSS: RANDOM
-    print("Running WTSS with Cost: RANDOM")
-    test_name = "WTSS_random"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.RANDOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('wtss')
-    print(f"Seed set (WTSS, RANDOM): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testWTSS_RANDOM.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
-
-    # WTSS: DEGREE
-    print("Running WTSS with Cost: DEGREE")
-    test_name = "WTSS_degree"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.DEGREE)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('wtss')
-    print(f"Seed set (WTSS, DEGREE): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testWTSS_DEGREE.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
-
-    """# WTSS: CUSTOM
-    print("Running WTSS with Cost: CUSTOM")
-    test_name = "WTSS_custom"
-    print("#############################################################")
-    fun = Cff.create_cost_function(Cft.CUSTOM)
-    graph = Graph(data_file, output_dir, fun, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('wtss')
-    print(f"Seed set (WTSS, CUSTOM): {graph.get_seed_set()}; |Seed set|: {len(graph.get_seed_set())}\n")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade(test_name)
-    graph.save_plot('testWTSS_CUSTOM.png')
-    graph.dyn_plot_cascade(test_name)
-    print("#############################################################")"""
-
+    if USE_MULTIPROCESSING:
+        for p in processes:
+            p.join()
+        print("\n ---> All processes completed.")
 
 if __name__ == '__main__':
     main()
