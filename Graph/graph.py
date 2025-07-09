@@ -426,7 +426,7 @@ class Graph:
         plt.grid(True)
         plt.show()
 
-    def dyn_plot_cascade(self):
+    def dyn_plot_cascade(self, test_name: str):
         """
         Generates a sequence of network plots representing the cumulative activation of nodes
         over the steps of a cascade process, and compiles them into an animated GIF.
@@ -458,7 +458,7 @@ class Graph:
         base_output_dir = os.path.join(self.save_path, "plots")
         cascade_dir = os.path.join(base_output_dir, "plot_cascade")
         images_dir = os.path.join(cascade_dir, "images")
-        gif_path = os.path.join(cascade_dir, "diffusione.gif")
+        gif_path = os.path.join(cascade_dir, f"diffusione_{test_name}.gif")
 
         # Create output directories if they do not exist
         os.makedirs(images_dir, exist_ok=True)
@@ -483,7 +483,7 @@ class Graph:
 
             ig.plot(
                 self.graph,
-                target=os.path.join(images_dir, f"step_{t:02d}.png"),
+                target=os.path.join(images_dir, f"step_{t:02d}_{test_name}.png"),
                 layout=layout,
                 vertex_color=colors,
                 vertex_size=8,
