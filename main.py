@@ -75,7 +75,7 @@ def main():
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
 
-    # CSG: DEGREE, F2
+    """# CSG: DEGREE, F2
     print("Running CSG with Cost: DEGREE, Goal: F2")
     test_name = "CSG_degree_f2"
     print("#############################################################")
@@ -103,9 +103,9 @@ def main():
     graph.plot_majority_cascade()
     graph.save_plot('testCSG_DEGREE_F3.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    print("#############################################################")"""
 
-    # CSG: CUSTOM, F1
+    """# CSG: CUSTOM, F1
     print("Running CSG with Cost: CUSTOM, Goal: F1")
     test_name = "CSG_custo_f1"
     print("#############################################################")
@@ -148,9 +148,9 @@ def main():
     graph.plot_majority_cascade()
     graph.save_plot('testCSG_CUSTOM_F3.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    print("#############################################################")"""
 
-    # WTSS: RANDOM
+    """# WTSS: RANDOM
     print("Running WTSS with Cost: RANDOM")
     test_name = "WTSS_random"
     print("#############################################################")
@@ -163,7 +163,7 @@ def main():
     graph.plot_majority_cascade()
     graph.save_plot('testWTSS_RANDOM.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    print("#############################################################")"""
 
     # WTSS: DEGREE
     print("Running WTSS with Cost: DEGREE")
@@ -180,7 +180,7 @@ def main():
     graph.dyn_plot_cascade(test_name)
     print("#############################################################")
 
-    # WTSS: CUSTOM
+    """# WTSS: CUSTOM
     print("Running WTSS with Cost: CUSTOM")
     test_name = "WTSS_custom"
     print("#############################################################")
@@ -193,7 +193,7 @@ def main():
     graph.plot_majority_cascade()
     graph.save_plot('testWTSS_CUSTOM.png')
     graph.dyn_plot_cascade(test_name)
-    print("#############################################################")
+    print("#############################################################")"""
 
 
 if __name__ == '__main__':
