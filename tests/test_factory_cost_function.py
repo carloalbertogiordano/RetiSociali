@@ -26,12 +26,8 @@ class TestFactoryWithIgraph(unittest.TestCase):
         self.assertIsInstance(func, CustomCostFunction)
 
     def test_factory_degree_with_graph(self):
-        func = CostFunctionFactory.create_cost_function(Cft.DEGREE, graph=self.graph)
+        func = CostFunctionFactory.create_cost_function(Cft.DEGREE)
         self.assertIsInstance(func, DegreeCostFunction)
-
-    def test_factory_degree_without_graph_raises(self):
-        with self.assertRaises(ValueError):
-            CostFunctionFactory.create_cost_function(Cft.DEGREE)
 
     def test_factory_unknown_type(self):
         class FakeType:

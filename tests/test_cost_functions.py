@@ -28,19 +28,19 @@ class TestCostFunctionsWithIgraph(unittest.TestCase):
         self.assertTrue(100 <= cost <= 200)
 
     def test_degree_cost_function(self):
-        func = DegreeCostFunction(self.graph)
-        cost = func.calculate_cost("2")  # Nodo 2 ha grado 2
+        func = DegreeCostFunction()
+        cost = func.calculate_cost(graph=self.graph, node_label="2")  # Nodo 2 ha grado 2
         self.assertEqual(cost, 1.0)      # degree / 2 = 2 / 2 = 1.0
 
     def test_degree_invalid_node_label(self):
-        func = DegreeCostFunction(self.graph)
+        func = DegreeCostFunction()
         with self.assertRaises(ValueError):
-            func.calculate_cost("6")  # Nodo inesistente
+            func.calculate_cost(graph=self.graph, node_label="6")  # Nodo inesistente
 
     def test_degree_invalid_type_node_label(self):
-        func = DegreeCostFunction(self.graph)
+        func = DegreeCostFunction()
         with self.assertRaises(TypeError):
-            func.calculate_cost(42)  # Non è una stringa
+            func.calculate_cost(graph=self.graph, node_label=42)  # Non è una stringa
 
 if __name__ == "__main__":
     unittest.main()
