@@ -48,6 +48,17 @@ def get_subgraph(graph: ig.Graph, number: int):
     return graph.induced_subgraph(list(visited))
 
 
+def calculate_budget(graph: ig.Graph, cost_fun):
+    budget = 0
+
+    degrees = graph.degree()
+    degrees_dict = {v.index: degree for v, degree in zip(graph.vs, degrees)}
+    top5 = sorted(degrees_dict.items(), key=lambda item: item[1], reverse=True)[:5]
+    top5_nomi = [(graph.vs[i]["name"], degree) for i, degree in top5]
+    for name, val in top5_nomi:
+        budget += cost_fun(node_label=name, graph=graph)
+    return budget
+
 class Graph:
 
     class GoalFuncType(Enum):
@@ -55,12 +66,11 @@ class Graph:
         F2 = 2
         F3 = 3
 
-    def __init__(self, file_path: str, budget: int, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100):
+    def __init__(self, file_path: str, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100):
         """
         Initialize a Graph object with a graph loaded from a file.
 
         :param file_path: Path to the edge list file defining the graph.
-        :param budget: The maximum allowable cost for the seed set.
         :param save_path: Directory path to save output plots.
         :param cost_func: The cost function to be applied
         :param is_sub_graph: If True, use a subgraph instead of the full graph.
@@ -74,14 +84,15 @@ class Graph:
         if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
 
-        if budget > self.graph.vcount():
-            budget = self.graph.vcount()
-
         if not isinstance(cost_func, cost_func_base.CostFunction):
             raise ValueError(f"Cost func is {type(cost_func)}, expected subclass of CostFunction")
         self.cost_fun = cost_func.calculate_cost
 
-        self.budget = budget
+        self.budget = calculate_budget(self.graph, self.cost_fun)
+        if self.budget > self.graph.vcount():
+            print(f"WARN: BUDGET HIGH GOT {self.budget}, NODE NUMBER IS {self.graph.vcount()}")
+
+        #self.budget = budget
         self.save_path = save_path
         self.seedSet = None
         self.cascade = None
@@ -374,6 +385,7 @@ class Graph:
                     │   └── ...
                     └── diffusione.gif
         """
+        return 
         layout = self.graph.layout("fr")  # Use force-directed layout for graph positioning
         max_step = len(self.cascade)
         colormap = cm.get_cmap("plasma", max_step + 1)
