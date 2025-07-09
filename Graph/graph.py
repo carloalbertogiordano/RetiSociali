@@ -113,10 +113,11 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
-    def cost_func_random(self, v, rangeLow=1, rangeMax=10):
+    def cost_func_random(self, nodeLabel, rangeLow=1, rangeMax=10):
         """
         Generate a random cost for a node within a specified range.
 
+        :param nodeLabel: The label (name) of the node (ignored).
         :param rangeLow: Lower bound of the random cost range (default: 1).
         :param rangeMax: Upper bound of the random cost range (default: 10).
         :return: A random integer cost between rangeLow and rangeMax.
@@ -148,7 +149,7 @@ class Graph:
         :param nodeLabel: The label (name) of the node.
         :return: A cost value (currently returns 0 as a placeholder).
         """
-        return 0  # cost_func_random(node, 10, 1000)  # TODO: Creare una funzione ad hoc
+        return self.cost_func_random(None, rangeLow=10, rangeMax=1000)  # TODO: Creare una funzione ad hoc
 
     def f1(self, S):
         """
