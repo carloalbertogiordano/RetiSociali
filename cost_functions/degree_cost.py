@@ -5,6 +5,5 @@ class DegreeCostFunction(CostFunction):
     def calculate_cost(self, **kwargs):
         """Compute the cost based on the node's degree."""
         node_label = kwargs.get("node_label")
-        graph = kwargs.get("igraph")
-        node = graph.vs.find(name=node_label)
-        return ceil(node.degree() / 2)
+        graph = kwargs.get("graph")
+        return ceil(graph.get_degree(node_label) / 2)

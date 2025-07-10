@@ -64,9 +64,11 @@ class Graph:
         self.graph = self.full_graph
 
         # Cache function results for f2 and f3
-        self.fun_cache = {}
+        self._fun_cache = {}
         # Cache neighborhood results
         self._neighbor_cache = {}
+        # Cache degree of a node
+        self._degree_cache = {}
 
         if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
@@ -105,14 +107,21 @@ class Graph:
             self._neighbor_cache[v] = [nbr["name"] for nbr in vertex.neighbors()]
         return self._neighbor_cache[v]
 
+    def get_degree(self, v):
+        if v not in self._degree_cache:
+            self._degree_cache[v] = self.graph.vs.find(name=v).degree()
+        return self._degree_cache[v]
+
     def get_graf(self):
         return self.graph
 
     def set_graph(self, graph: ig.Graph):
         self.graph = graph
         self.full_graph = graph
-        self.fun_cache = {}
+        # Invalidate caches
+        self._fun_cache = {}
         self._neighbor_cache = {}
+        self._degree_cache = {}
 
     def cost_seed_set(self, S, cost):
         """
@@ -146,13 +155,13 @@ class Graph:
                 """
 
         key = frozenset(S)
-        if key in self.fun_cache and False:
-            return self.fun_cache[key]
+        if key in self._fun_cache and False:
+            return self._fun_cache[key]
 
         total = 0
         for v in self.graph.vs["name"]:
-            neighbors_in_S = set(self.get_neighbors(v)).intersection(S) # set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S)
-            threshold = math.ceil(self.graph.vs.find(name=v).degree() / 2)
+            neighbors_in_S = set(self.get_neighbors(v)).intersection(S)
+            threshold = math.ceil(self.get_degree(v) / 2)
             total += min(len(neighbors_in_S), threshold)
         return total
 
@@ -164,18 +173,18 @@ class Graph:
         :return: The total value of the objective function across all nodes.
         """
         key = frozenset(S)
-        if key in self.fun_cache and False:
-            return self.fun_cache[key]
+        if key in self._fun_cache and False:
+            return self._fun_cache[key]
 
         total = 0
         for v in self.graph.vs["name"]:
-            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S)) #list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
-            d_v = self.graph.vs.find(name=v).degree()
+            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S))
+            d_v = self.get_degree(v)
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 total += max(threshold - i + 1, 0)
 
-        self.fun_cache[key] = total
+        self._fun_cache[key] = total
         return total
 
     def f3(self, S):
@@ -187,13 +196,13 @@ class Graph:
         """
 
         key = frozenset(S)
-        if key in self.fun_cache and False:
-            return self.fun_cache[key]
+        if key in self._fun_cache and False:
+            return self._fun_cache[key]
 
         total = 0
         for v in self.graph.vs["name"]:
             neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S)) # list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
-            d_v = self.graph.vs.find(name=v).degree()
+            d_v = self.get_degree(v)
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 denom = d_v - i + 1
@@ -251,12 +260,10 @@ class Graph:
 
         U = set(V)
         S = set()
-        thresholds = {v: max(1, self.graph.vs.find(
-            name=v).degree() // 2) for v in V}
+        thresholds = {v: max(1, self.get_degree(v) // 2) for v in V}
 
         # Stato dinamico
-        delta = {v: self.graph.vs.find(name=v).degree()
-                 for v in V}  # δ(v) -> grado
+        delta = {v: self.get_degree(v) for v in V}  # δ(v) -> grado
         k = {v: thresholds[v] for v in V}  # k(v) -> threshold
         neighbors = {v: set(x["name"] for x in self.graph.vs.find(
             name=v).neighbors()) for v in V}  # neighbors(v) -> Vicini
@@ -338,15 +345,9 @@ class Graph:
             new_influenced = prev_influenced.copy()
 
             for v in V - prev_influenced:
-                vertex = self.graph.vs.find(name=v)
-                # prendo la lista di name dei vicini
-                neighbor_names = self.get_neighbors(v) # [nbr["name"] for nbr in vertex.neighbors()]
-
-                # conto quanti di questi sono già influenzati
-                #active_neighbors = sum(1 for nbr in neighbor_names if nbr in prev_influenced)
                 active_neighbors = sum(1 for nbr in self.get_neighbors(v) if nbr in prev_influenced)
+                threshold = math.ceil(self.get_degree(v) / 2)
 
-                threshold = math.ceil(vertex.degree() / 2)
                 if active_neighbors >= threshold:
                     new_influenced.add(v)
 

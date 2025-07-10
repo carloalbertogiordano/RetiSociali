@@ -16,7 +16,7 @@ class CustomCostFunction(CostFunction):
         
         for v in neighbors_of_u:
             neighbors_of_v = set(graph.get_neighbors(v))
-            degree_of_v = igraph.vs.find(name=v).degree()
+            degree_of_v = graph.get_degree(v)
             total += (degree_of_v / (len(neighbors_of_v.intersection(neighbors_of_u)) + 1))
         
         return ceil(total / 2)
