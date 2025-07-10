@@ -1,6 +1,38 @@
 from deap import base, creator, tools, algorithms
 from Graph.graph import Graph
 import random
+import multiprocessing
+from functools import partial
+
+
+def evaluate_individual(individual, node_list, fitness_function):
+    """
+    Evaluate the fitness of an individual by converting its binary genome
+    to the actual graph node IDs forming the seed set.
+
+    Parameters:
+    - individual: list of 0/1 values representing node inclusion (genes)
+    - node_list: list of graph node IDs in fixed order to map genes to nodes
+    - fitness_function: function to calculate spread (influence) from seed set
+
+    Returns:
+    - tuple with single fitness value (spread), as required by DEAP
+    """
+    # Extract seed nodes where gene=1
+    seed_set = set(node_list[i] for i, gene in enumerate(individual) if gene == 1)
+
+    # Calculate spread or influence by applying fitness function on seed set
+    spread_nodes = fitness_function(seed_set)
+
+    # Convert spread result to a numeric value (length if set/list, or numeric directly)
+    if isinstance(spread_nodes, (set, list)):
+        spread = len(spread_nodes)
+    elif isinstance(spread_nodes, (int, float)):
+        spread = spread_nodes
+    else:
+        raise TypeError(f"Fitness function returned invalid type: {type(spread_nodes)}")
+
+    return (spread, )  # Return as a tuple for DEAP compatibility
 
 
 class GeneticAlgo:
@@ -13,26 +45,26 @@ class GeneticAlgo:
         indpb_mutation,
         population_size,
         num_generations,
-        fitness_function = Graph.calc_majority_cascade_on_seed_set,
+        fitness_function=Graph.calc_majority_cascade_on_seed_set,
         verbose=True
     ):
         """
-        Initialize the Genetic Algorithm engine.
+        Initialize the genetic algorithm engine with parameters and graph.
 
         Parameters:
-        - graph: Graph wrapper object (must implement get_node_num and cascade logic)
-        - cxpb: Crossover probability (between 0 and 1)
-        - mutpb: Mutation probability (between 0 and 1)
-        - indpb_crossover: Probability of swapping a gene in uniform crossover
-        - indpb_mutation: Probability of mutating a gene in scramble mutation
-        - population_size: Number of individuals per generation
-        - num_generations: Number of evolutionary generations
-        - verbose: Whether to print progress each generation
+        - graph: Graph object implementing methods for nodes and cascade
+        - cxpb: probability of crossover between individuals (0 to 1)
+        - mutpb: probability of mutation for individuals (0 to 1)
+        - indpb_crossover: probability of swapping gene during uniform crossover
+        - indpb_mutation: probability of mutating each gene in shuffle mutation
+        - population_size: number of individuals per generation
+        - num_generations: number of generations to evolve
+        - fitness_function: function to evaluate fitness, defaults to graph method
+        - verbose: whether to print algorithm progress during execution
         """
         self.graph = graph
-        self.node_number = graph.get_node_num()
+        self.node_number = graph.get_node_num()  # Number of nodes in the graph
 
-        # Genetic algorithm parameters
         self.cxpb = cxpb
         self.mutpb = mutpb
         self.indpb_crossover = indpb_crossover
@@ -41,98 +73,102 @@ class GeneticAlgo:
         self.num_generations = num_generations
         self.verbose = verbose
 
-        self.node_list = self.graph.get_nodes_list()  # Must return list of graph node IDs, in fixed order
+        # List of nodes in fixed order, used to map genome bits to actual nodes
+        self.node_list = self.graph.get_nodes_list()
         self.fitness_function = fitness_function
 
+        # Setup DEAP toolbox, creators and operators
         self._setup_deap()
 
     def _setup_deap(self):
         """
-        Initialize DEAP components: creator, toolbox, and operators.
+        Initialize DEAP's creator, toolbox and register genetic operators.
         """
-        # Define fitness and individual structure (only once globally)
+
+        # Create a maximizing fitness (single objective)
         if not hasattr(creator, "FitnessMax"):
             creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+
+        # Define an individual as a list with the maximizing fitness attribute
         if not hasattr(creator, "Individual"):
             creator.create("Individual", list, fitness=creator.FitnessMax)
 
+        # Create toolbox to register functions and operators
         self.toolbox = base.Toolbox()
 
-        # Each gene is a binary value (0 or 1)
+        # Attribute generator: random bit 0 or 1
         self.toolbox.register("attr_bool", random.randint, 0, 1)
 
-        # An individual is a list of N binary genes
+        # Individual generator: list of binary genes, length = number of graph nodes
         self.toolbox.register("individual", tools.initRepeat, creator.Individual,
                               self.toolbox.attr_bool, self.node_number)
 
-        # A population is a list of individuals
+        # Population generator: list of individuals
         self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
 
-        # Evaluation function using the Graph wrapper's cascade model
-        self.toolbox.register("evaluate", self._evaluate)
-
-        # Uniform crossover: genes are swapped with a given probability
+        # Register crossover operator: uniform crossover with gene swap prob indpb_crossover
         self.toolbox.register("mate", tools.cxUniform, indpb=self.indpb_crossover)
 
-        # Scramble mutation: a slice of the genome is randomly shuffled
+        # Register mutation operator: shuffle mutation with probability indpb_mutation per gene
         self.toolbox.register("mutate", tools.mutShuffleIndexes, indpb=self.indpb_mutation)
 
-        # Selection by fitness proportionate method (roulette wheel)
+        # Register selection operator: roulette wheel selection by fitness proportion
         self.toolbox.register("select", tools.selRoulette)
 
+        # Default map function to Python's built-in map (serial evaluation)
+        self.toolbox.register("map", map)
 
-    def _evaluate(self, individual):
-        """
-        Evaluate the fitness of an individual by converting its binary genome
-        to the actual graph node IDs forming the seed set.
-
-        Parameters:
-        - individual: list of 0/1 values representing node inclusion
-
-        Returns:
-        - tuple with single fitness value (spread)
-        """
-        # Map indices of bits set to actual node IDs
-        seed_set = set(self.node_list[i] for i, gene in enumerate(individual) if gene == 1)
-
-        # On calc_majority_cascade_on_seed_set this will be a set instead of a number
-        spread_nodes = self.fitness_function(seed_set)
-
-        # Ensure spread is always a number
-        if isinstance(spread_nodes, (set, list)):
-            spread = len(spread_nodes)
-        elif isinstance(spread_nodes, (int, float)):
-            spread = spread_nodes
-        else:
-            raise TypeError(f"Fitness function returned invalid type: {type(spread_nodes)}")
-
-        return (spread, )
-
+        # Note: Evaluation function will be registered dynamically in run() for multiprocessing
 
     def run(self):
         """
-        Run the genetic algorithm and return the best solution.
+        Run the genetic algorithm optimization.
+
+        Uses multiprocessing Pool for parallel evaluation of individuals.
 
         Returns:
-        - best_individual: binary list of genes (0/1)
-        - best_seed_set: list of actual graph node IDs included in the seed set
-        - best_fitness: float or int, spread value
+        - best_individual: the fittest individual (binary gene list)
+        - best_seed_set: list of graph nodes corresponding to 1 genes in best_individual
+        - best_fitness: fitness value (spread) of the best individual
         """
-        population = self.toolbox.population(n=self.population_size)
-        hof = tools.HallOfFame(1)
 
-        algorithms.eaSimple(
-            population,
-            self.toolbox,
-            cxpb=self.cxpb,
-            mutpb=self.mutpb,
-            ngen=self.num_generations,
-            halloffame=hof,
-            verbose=self.verbose
-        )
+        # Create a multiprocessing pool for parallel evaluation
+        with multiprocessing.Pool() as pool:
+            # Use functools.partial to bind node_list and fitness_function to the evaluator
+            eval_func = partial(evaluate_individual,
+                                node_list=self.node_list,
+                                fitness_function=self.fitness_function)
 
+            # Register the evaluation function to the toolbox
+            self.toolbox.register("evaluate", eval_func)
+
+            # Register pool.map for parallel evaluation in DEAP
+            self.toolbox.register("map", pool.map)
+
+            # Initialize population
+            population = self.toolbox.population(n=self.population_size)
+
+            # Hall of Fame to store best individual found
+            hof = tools.HallOfFame(1)
+
+            # Run the simple evolutionary algorithm with parameters set
+            algorithms.eaSimple(
+                population,
+                self.toolbox,
+                cxpb=self.cxpb,
+                mutpb=self.mutpb,
+                ngen=self.num_generations,
+                halloffame=hof,
+                verbose=self.verbose
+            )
+
+        # Extract the best individual after evolution
         best_individual = hof[0]
+
+        # Convert best individual's genome to actual node IDs in the seed set
         best_seed_set = [self.node_list[i] for i, gene in enumerate(best_individual) if gene == 1]
+
+        # Get fitness value (spread) of the best individual
         best_fitness = best_individual.fitness.values[0]
 
         return best_individual, best_seed_set, best_fitness

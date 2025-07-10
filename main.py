@@ -5,7 +5,7 @@ from cost_functions.factory import CostFunctionFactory as Cff
 from cost_functions.factory import CostFuncType as Cft
 
 # Switch between sequential and parallel execution
-USE_MULTIPROCESSING = False
+USE_MULTIPROCESSING = True
 
 def run_csg(cost_type, goal_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
     print(f"[CSG] Cost: {cost_type.name}, Goal: {goal_type.name}")
@@ -67,18 +67,18 @@ def main():
     saved_graph = base_graph.get_graf()
 
     csg_tasks = [
-        (Cft.RANDOM, Graph.GoalFuncType.F1),
-        (Cft.RANDOM, Graph.GoalFuncType.F2),
-        (Cft.RANDOM, Graph.GoalFuncType.F3),
-        (Cft.DEGREE, Graph.GoalFuncType.F1),
-        (Cft.DEGREE, Graph.GoalFuncType.F2),
-        (Cft.DEGREE, Graph.GoalFuncType.F3),
-        (Cft.CUSTOM, Graph.GoalFuncType.F1),
-        (Cft.CUSTOM, Graph.GoalFuncType.F2),
-        (Cft.CUSTOM, Graph.GoalFuncType.F3),
+        #(Cft.RANDOM, Graph.GoalFuncType.F1),
+        #(Cft.RANDOM, Graph.GoalFuncType.F2),
+        #(Cft.RANDOM, Graph.GoalFuncType.F3),
+        #(Cft.DEGREE, Graph.GoalFuncType.F1),
+        #(Cft.DEGREE, Graph.GoalFuncType.F2),
+        #(Cft.DEGREE, Graph.GoalFuncType.F3),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F1),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F2),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F3),
     ]
 
-    wtss_tasks = [(Cft.RANDOM,), (Cft.DEGREE,), (Cft.CUSTOM,)]
+    wtss_tasks = [] #[(Cft.RANDOM,), (Cft.DEGREE,), (Cft.CUSTOM,)]
 
     genetic_tasks = [
         (Cft.RANDOM, Graph.GoalFuncType.F1),
