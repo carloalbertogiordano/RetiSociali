@@ -42,18 +42,6 @@ def get_subgraph(graph: ig.Graph, number: int):
 
     return graph.induced_subgraph(list(visited))
 
-
-def calculate_budget(graph: ig.Graph, cost_fun):
-    budget = 0
-
-    degrees = graph.degree()
-    degrees_dict = {v.index: degree for v, degree in zip(graph.vs, degrees)}
-    top5 = sorted(degrees_dict.items(), key=lambda item: item[1], reverse=True)[:5]
-    top5_nomi = [(graph.vs[i]["name"], degree) for i, degree in top5]
-    for name, val in top5_nomi:
-        budget += cost_fun(node_label=name, graph=graph)
-    return budget
-
 class Graph:
 
     class GoalFuncType(Enum):
@@ -73,8 +61,12 @@ class Graph:
         """
         self.full_graph = ig.Graph.Read_Edgelist(file_path, directed=False)
         self.full_graph.vs["name"] = list(range(self.full_graph.vcount()))
-
         self.graph = self.full_graph
+
+        # Cache function results for f2 and f3
+        self.fun_cache = {}
+        # Cache neighborhood results
+        self._neighbor_cache = {}
 
         if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
@@ -83,7 +75,7 @@ class Graph:
             raise ValueError(f"Cost func is {type(cost_func)}, expected subclass of CostFunction")
         self.cost_fun = cost_func.calculate_cost
 
-        self.budget = calculate_budget(self.graph, self.cost_fun)
+        self.budget = self.calculate_budget(self.cost_fun)
         if self.budget > self.graph.vcount():
             print(f"WARN: BUDGET HIGH GOT {self.budget}, NODE NUMBER IS {self.graph.vcount()}")
 
@@ -93,11 +85,16 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
-        # Cache function results for f2 and f3
-        self.fun_cache = {}
+    def calculate_budget(self, cost_fun):
+        budget = 0
 
-        # Cache neighborhood results
-        self._neighbor_cache = {}
+        degrees = self.graph.degree()
+        degrees_dict = {v.index: degree for v, degree in zip(self.graph.vs, degrees)}
+        top5 = sorted(degrees_dict.items(), key=lambda item: item[1], reverse=True)[:5]
+        top5_nomi = [(self.graph.vs[i]["name"], degree) for i, degree in top5]
+        for name, val in top5_nomi:
+            budget += cost_fun(node_label=name, igraph=self.graph, graph=self)
+        return budget
 
     def get_neighbors(self, v):
         """
@@ -114,6 +111,8 @@ class Graph:
     def set_graph(self, graph: ig.Graph):
         self.graph = graph
         self.full_graph = graph
+        self.fun_cache = {}
+        self._neighbor_cache = {}
 
     def cost_seed_set(self, S, cost):
         """
@@ -123,7 +122,7 @@ class Graph:
         :param cost: A function that returns the cost of a node.
         :return: The total cost of the seed set.
         """
-        return sum(cost(node_label=u, graph=self.graph) for u in S)
+        return sum(cost(node_label=u, igraph=self.graph, graph=self) for u in S)
 
     # Seleziona il nodo che ha un rapporto marginal gain / costo del nodo  migliore
     def argmax(self, V, S, f, **kwargs):
@@ -136,7 +135,7 @@ class Graph:
         :param cost_function: The function to compute the cost of a node.
         :return: The node with the best marginal gain / cost ratio.
         """
-        return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / self.cost_fun(node_label=v, graph=self.graph))
+        return max(set(V) - S, key=lambda v: marginal_gain(v, S, f) / self.cost_fun(node_label=v, igraph=self.graph, graph=self))
 
     def f1(self, S):
         """
@@ -284,7 +283,7 @@ class Graph:
                     def score(u):
                         if delta[u] == 0:
                             return float('inf')
-                        return self.cost_fun(label=u, graph=self.graph) * k[u] / (delta[u] * (delta[u] + 1))
+                        return self.cost_fun(label=u, igraph=self.graph, graph=self) * k[u] / (delta[u] * (delta[u] + 1))
 
                     v = min(U, key=score)
 

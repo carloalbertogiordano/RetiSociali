@@ -59,8 +59,8 @@ def dyn_plot_cascade(graph):
                 │   └── ...
                 └── diffusione.gif
     """
-    return 
-    layout = graph.graph.layout("fr")  # Use force-directed layout for graph positioning
+    return
+    layout = graph.igraph.layout("fr")  # Use force-directed layout for graph positioning
     max_step = len(graph.cascade)
     colormap = cm.get_cmap("plasma", max_step + 1)
 
@@ -88,7 +88,7 @@ def dyn_plot_cascade(graph):
     # Generate one image per step
     for t, active in enumerate(cumulative_cascade):
         colors = []
-        for v in range(graph.graph.vcount()):
+        for v in range(graph.igraph.vcount()):
             if v in active:
                 c = colormap(t)  # Color based on activation time
                 c_hex = rgba_to_hex(c)
@@ -97,7 +97,7 @@ def dyn_plot_cascade(graph):
             colors.append(c_hex)
 
         ig.plot(
-            graph.graph,
+            graph.igraph,
             target=os.path.join(images_dir, f"step_{t:02d}_{graph.info_name}.png"),
             layout=layout,
             vertex_color=colors,
