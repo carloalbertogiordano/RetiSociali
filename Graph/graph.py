@@ -69,6 +69,8 @@ class Graph:
         self._neighbor_cache = {}
         # Cache degree of a node
         self._degree_cache = {}
+        # Cache node list
+        self._node_list_cache = ()
 
         if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
@@ -86,6 +88,14 @@ class Graph:
         self.info_name=info_name
         self.seedSet = None
         self.cascade = None
+
+    def get_node_num(self):
+        """
+        Returns number of vertexes in the graph
+
+        :return: The number of nodes in the graph
+        """
+        return self.graph.vcount()
 
     def calculate_budget(self, cost_fun):
         budget = 0
@@ -122,6 +132,19 @@ class Graph:
         self._fun_cache = {}
         self._neighbor_cache = {}
         self._degree_cache = {}
+        self._node_list_cache = ()
+
+    def get_nodes_list(self):
+        """
+        Return a list of all node names in the graph, in order
+        """
+        if len(self._node_list_cache) == 0:
+            nl = []
+            for v in self.graph.vs:
+                nl.append(v["name"])
+            self._node_list_cache = nl
+
+        return self._node_list_cache
 
     def cost_seed_set(self, S, cost):
         """
@@ -303,6 +326,35 @@ class Graph:
         self.seedSet = S
         print(f"Len seed set {len(self.seedSet)}")
 
+    def genetic_search(self, select_goal_fun=GoalFuncType.F1):
+        from Graph.utils.genetic import GeneticAlgo
+
+        match select_goal_fun:
+            case Graph.GoalFuncType.F1:
+                obj_fun = self.f1
+            case Graph.GoalFuncType.F2:
+                obj_fun = self.f2
+            case Graph.GoalFuncType.F3:
+                obj_fun = self.f3
+            case _:
+                obj_fun = self.calc_majority_cascade_on_seed_set
+
+        alg = GeneticAlgo(
+            self,
+            0.5,
+            0.25,
+            0.5,
+            0.5,
+            int(self.get_node_num() * 0.3), # 30%
+            1000, # tmp gen number
+            obj_fun,
+            True
+        )
+
+        result = alg.run() # -> best_individual, best_seed_set, best_fitness
+        self.seedSet = result[1]
+
+
     def calc_seed_set(self, method, *args, **kwargs):
         """
         Calculate the seed set using the specified method.
@@ -315,6 +367,8 @@ class Graph:
             self.csg(**kwargs)
         elif method == 'wtss':
             self.wtss(**kwargs)
+        elif method == 'genetic':
+            self.genetic_search(**kwargs)
         else:
             raise ValueError("Method must be csg or wtss")
 
@@ -358,6 +412,27 @@ class Graph:
             prev_influenced = new_influenced
 
         self.cascade = cascade
+
+    def calc_majority_cascade_on_seed_set(self, s: set):
+        """
+        Calculate the majority cascade on a given seed set
+        Note: This method saves the previous seed set and majority cascade,
+            then restores it after completion
+        :param s: The seed set
+        :return: List of influenced nodes from the seed set
+        """
+        prev_ss = self.seedSet
+        prev_mjc = self.cascade
+        self.seedSet = s # Use new seed set
+        self.cascade = None
+
+        self.calc_majority_cascade() # Majority cascade
+        result = self.cascade
+
+        self.seedSet = prev_ss  # Restore ss
+        self.cascade = prev_mjc # Restore cascade
+
+        return result
 
     def get_majority_cascade(self):
         """
