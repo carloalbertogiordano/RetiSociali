@@ -54,12 +54,15 @@ def main():
         #(Cft.RANDOM, Graph.GoalFuncType.F1),
         #(Cft.RANDOM, Graph.GoalFuncType.F2),
         #(Cft.RANDOM, Graph.GoalFuncType.F3),
-        (Cft.DEGREE, Graph.GoalFuncType.F1),
-        (Cft.DEGREE, Graph.GoalFuncType.F2),
-        (Cft.DEGREE, Graph.GoalFuncType.F3),
+        #(Cft.DEGREE, Graph.GoalFuncType.F1),
+        #(Cft.DEGREE, Graph.GoalFuncType.F2),
+        #(Cft.DEGREE, Graph.GoalFuncType.F3),
+        (Cft.CUSTOM, Graph.GoalFuncType.F1),
+        (Cft.CUSTOM, Graph.GoalFuncType.F2),
+        (Cft.CUSTOM, Graph.GoalFuncType.F3),
     ]
 
-    wtss_tasks = [ ]#(Cft.RANDOM,), (Cft.DEGREE,) ]
+    wtss_tasks = [(Cft.RANDOM,), (Cft.DEGREE,), (Cft.CUSTOM)] 
 
     processes = []
 

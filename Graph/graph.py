@@ -103,7 +103,7 @@ class Graph:
         """
         Returns cached neighbors of node v by name.
         """
-        if v not in self._neighbor_cache and True:
+        if v not in self._neighbor_cache:
             vertex = self.graph.vs.find(name=v)
             self._neighbor_cache[v] = [nbr["name"] for nbr in vertex.neighbors()]
         return self._neighbor_cache[v]
