@@ -58,7 +58,7 @@ def main():
 
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 200
+    sub_graph_dim = 10
     os.makedirs(output_dir, exist_ok=True)
 
     # Build the base graph only once and share its structure
@@ -81,17 +81,17 @@ def main():
     wtss_tasks = [] #[(Cft.RANDOM,), (Cft.DEGREE,), (Cft.CUSTOM,)]
 
     genetic_tasks = [
-        (Cft.RANDOM, Graph.GoalFuncType.F1),
-        (Cft.RANDOM, Graph.GoalFuncType.F2),
-        (Cft.RANDOM, Graph.GoalFuncType.F3),
+        #(Cft.RANDOM, Graph.GoalFuncType.F1),
+        #(Cft.RANDOM, Graph.GoalFuncType.F2),
+        #(Cft.RANDOM, Graph.GoalFuncType.F3),
         (Cft.RANDOM, None),
-        (Cft.DEGREE, Graph.GoalFuncType.F1),
-        (Cft.DEGREE, Graph.GoalFuncType.F2),
-        (Cft.DEGREE, Graph.GoalFuncType.F3),
+        #(Cft.DEGREE, Graph.GoalFuncType.F1),
+        #(Cft.DEGREE, Graph.GoalFuncType.F2),
+        #(Cft.DEGREE, Graph.GoalFuncType.F3),
         (Cft.DEGREE, None),
-        (Cft.CUSTOM, Graph.GoalFuncType.F1),
-        (Cft.CUSTOM, Graph.GoalFuncType.F2),
-        (Cft.CUSTOM, Graph.GoalFuncType.F3),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F1),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F2),
+        #(Cft.CUSTOM, Graph.GoalFuncType.F3),
         (Cft.CUSTOM, None),
     ]
 

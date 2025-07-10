@@ -60,8 +60,8 @@ def dyn_plot_cascade(graph):
                 └── diffusione.gif
     """
     return
-    layout = graph.igraph.layout("fr")  # Use force-directed layout for graph positioning
-    max_step = len(graph.cascade)
+    layout = graph.graph.layout("fr")  # Use force-directed layout for graph positioning
+    max_step = len(graph.get_majority_cascade())
     colormap = cm.get_cmap("plasma", max_step + 1)
 
     def rgba_to_hex(rgba):
@@ -81,14 +81,14 @@ def dyn_plot_cascade(graph):
     # Compute cumulative activated nodes at each cascade step
     cumulative_cascade = []
     active_nodes = set()
-    for step in graph.cascade:
+    for step in graph.get_majority_cascade():
         active_nodes |= step
         cumulative_cascade.append(active_nodes.copy())
 
     # Generate one image per step
     for t, active in enumerate(cumulative_cascade):
         colors = []
-        for v in range(graph.igraph.vcount()):
+        for v in range(graph.graph.vcount()):
             if v in active:
                 c = colormap(t)  # Color based on activation time
                 c_hex = rgba_to_hex(c)
@@ -97,7 +97,7 @@ def dyn_plot_cascade(graph):
             colors.append(c_hex)
 
         ig.plot(
-            graph.igraph,
+            graph.graph,
             target=os.path.join(images_dir, f"step_{t:02d}_{graph.info_name}.png"),
             layout=layout,
             vertex_color=colors,
@@ -107,7 +107,7 @@ def dyn_plot_cascade(graph):
         )
 
     # Load all generated images and compile into an animated GIF
-    images = [Image.open(f) for f in sorted(glob.glob(os.path.join(images_dir, "step_*.png")))]
+    images = [Image.open(f) for f in sorted(glob.glob(os.path.join(images_dir, f"step_*{graph.info_name}.png")))]
     images[0].save(
         gif_path,
         save_all=True,

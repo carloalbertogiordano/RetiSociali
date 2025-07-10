@@ -3,9 +3,10 @@ from Graph.graph import Graph
 import random
 import multiprocessing
 from functools import partial
+from math import ceil
 
 
-def evaluate_individual(individual, node_list, fitness_function):
+def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
     """
     Evaluate the fitness of an individual by converting its binary genome
     to the actual graph node IDs forming the seed set.
@@ -22,7 +23,7 @@ def evaluate_individual(individual, node_list, fitness_function):
     seed_set = set(node_list[i] for i, gene in enumerate(individual) if gene == 1)
 
     # Calculate spread or influence by applying fitness function on seed set
-    spread_nodes = fitness_function(seed_set)
+    spread_nodes = fitness_function(seed_set) 
 
     # Convert spread result to a numeric value (length if set/list, or numeric directly)
     if isinstance(spread_nodes, (set, list)):
@@ -31,8 +32,14 @@ def evaluate_individual(individual, node_list, fitness_function):
         spread = spread_nodes
     else:
         raise TypeError(f"Fitness function returned invalid type: {type(spread_nodes)}")
-
-    return (spread, )  # Return as a tuple for DEAP compatibility
+    
+    """cost_seed_set = graph.cost_seed_set(seed_set, cost_function)
+    if cost_seed_set < graph.budget:
+        return (ceil(spread / cost_seed_set),)
+    else:
+        return (0,)"""
+    
+    return (ceil(spread / graph.cost_seed_set(seed_set, cost_function)), )  # Return as a tuple for DEAP compatibility
 
 
 class GeneticAlgo:
@@ -45,6 +52,7 @@ class GeneticAlgo:
         indpb_mutation,
         population_size,
         num_generations,
+        cost_function,
         fitness_function=Graph.calc_majority_cascade_on_seed_set,
         verbose=True
     ):
@@ -72,6 +80,7 @@ class GeneticAlgo:
         self.population_size = population_size
         self.num_generations = num_generations
         self.verbose = verbose
+        self.cost_function = cost_function
 
         # List of nodes in fixed order, used to map genome bits to actual nodes
         self.node_list = self.graph.get_nodes_list()
@@ -137,7 +146,9 @@ class GeneticAlgo:
             # Use functools.partial to bind node_list and fitness_function to the evaluator
             eval_func = partial(evaluate_individual,
                                 node_list=self.node_list,
-                                fitness_function=self.fitness_function)
+                                fitness_function=self.fitness_function,
+                                cost_function=self.cost_function,
+                                graph=self.graph)
 
             # Register the evaluation function to the toolbox
             self.toolbox.register("evaluate", eval_func)
@@ -170,5 +181,11 @@ class GeneticAlgo:
 
         # Get fitness value (spread) of the best individual
         best_fitness = best_individual.fitness.values[0]
+        
+        print(f"Best_individual: {best_individual}")
+        print(f"Best_seed_set: {best_seed_set}")
+        print(f"Best_fitness: {best_fitness}")
+        print(f"Budget: {self.graph.budget}")
+        print(f"Seed set cost: {self.graph.cost_seed_set(best_seed_set, self.cost_function)}")
 
         return best_individual, best_seed_set, best_fitness

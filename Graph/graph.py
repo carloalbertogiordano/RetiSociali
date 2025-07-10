@@ -347,6 +347,7 @@ class Graph:
             0.5,
             int(self.get_node_num() * 0.3), # 30%
             1000, # tmp gen number
+            self.cost_fun,
             obj_fun,
             True
         )
