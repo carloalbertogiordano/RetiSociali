@@ -93,6 +93,21 @@ class Graph:
         self.seedSet = None
         self.cascade = None
 
+        # Cache function results for f2 and f3
+        self.fun_cache = {}
+
+        # Cache neighborhood results
+        self._neighbor_cache = {}
+
+    def get_neighbors(self, v):
+        """
+        Returns cached neighbors of node v by name.
+        """
+        if v not in self._neighbor_cache and True:
+            vertex = self.graph.vs.find(name=v)
+            self._neighbor_cache[v] = [nbr["name"] for nbr in vertex.neighbors()]
+        return self._neighbor_cache[v]
+
     def get_graf(self):
         return self.graph
 
@@ -130,9 +145,14 @@ class Graph:
                 :param S: The seed set.
                 :return: The total value of the objective function across all nodes.
                 """
+
+        key = frozenset(S)
+        if key in self.fun_cache and False:
+            return self.fun_cache[key]
+
         total = 0
         for v in self.graph.vs["name"]:
-            neighbors_in_S = set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S)
+            neighbors_in_S = set(self.get_neighbors(v)).intersection(S) # set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S)
             threshold = math.ceil(self.graph.vs.find(name=v).degree() / 2)
             total += min(len(neighbors_in_S), threshold)
         return total
@@ -144,13 +164,19 @@ class Graph:
         :param S: The seed set.
         :return: The total value of the objective function across all nodes.
         """
+        key = frozenset(S)
+        if key in self.fun_cache and False:
+            return self.fun_cache[key]
+
         total = 0
         for v in self.graph.vs["name"]:
-            neighbors_in_S = list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
+            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S)) #list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
             d_v = self.graph.vs.find(name=v).degree()
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 total += max(threshold - i + 1, 0)
+
+        self.fun_cache[key] = total
         return total
 
     def f3(self, S):
@@ -160,9 +186,14 @@ class Graph:
         :param S: The seed set.
         :return: The total value of the objective function across all nodes.
         """
+
+        key = frozenset(S)
+        if key in self.fun_cache and False:
+            return self.fun_cache[key]
+
         total = 0
         for v in self.graph.vs["name"]:
-            neighbors_in_S = list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
+            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S)) # list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
             d_v = self.graph.vs.find(name=v).degree()
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
@@ -197,7 +228,7 @@ class Graph:
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
         while self.cost_seed_set(S_d, self.cost_fun) <= self.budget:
-            print(f" Cost seed set: {self.cost_seed_set(S_d, self.cost_fun)}")
+            print(f" Cost seed set: {self.cost_seed_set(S_d, self.cost_fun)}, max is {self.budget}")
             # print(f"Costo di S {self.cost_seed_set(S_d, cost_fn)}, k={k}")
             u = self.argmax(V, S_d, obj_fun)
             print(f"Selected node: {u}")
@@ -310,10 +341,11 @@ class Graph:
             for v in V - prev_influenced:
                 vertex = self.graph.vs.find(name=v)
                 # prendo la lista di name dei vicini
-                neighbor_names = [nbr["name"] for nbr in vertex.neighbors()]
+                neighbor_names = self.get_neighbors(v) # [nbr["name"] for nbr in vertex.neighbors()]
 
                 # conto quanti di questi sono già influenzati
-                active_neighbors = sum(1 for nbr in neighbor_names if nbr in prev_influenced)
+                #active_neighbors = sum(1 for nbr in neighbor_names if nbr in prev_influenced)
+                active_neighbors = sum(1 for nbr in self.get_neighbors(v) if nbr in prev_influenced)
 
                 threshold = math.ceil(vertex.degree() / 2)
                 if active_neighbors >= threshold:
