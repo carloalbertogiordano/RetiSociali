@@ -438,6 +438,14 @@ class Graph:
 
         return result
 
+    # F0r gpu
+    def get_adjacency_matrix(self):
+        from scipy.sparse import csr_matrix
+        edges = self.get_edges()  # Lista di tuple (i, j)
+        row, col = zip(*edges)
+        data = np.ones(len(edges))
+        return csr_matrix((data, (row, col)), shape=(self.node_num, self.node_num))
+
     def get_majority_cascade(self):
         """
         Retrieve the computed majority cascade.
