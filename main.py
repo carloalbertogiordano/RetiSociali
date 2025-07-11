@@ -58,7 +58,7 @@ def main():
 
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 10
+    sub_graph_dim = 100
     os.makedirs(output_dir, exist_ok=True)
 
     # Build the base graph only once and share its structure
@@ -84,7 +84,7 @@ def main():
         #(Cft.RANDOM, Graph.GoalFuncType.F1),
         #(Cft.RANDOM, Graph.GoalFuncType.F2),
         #(Cft.RANDOM, Graph.GoalFuncType.F3),
-        (Cft.RANDOM, None),
+        #(Cft.RANDOM, None),
         #(Cft.DEGREE, Graph.GoalFuncType.F1),
         #(Cft.DEGREE, Graph.GoalFuncType.F2),
         #(Cft.DEGREE, Graph.GoalFuncType.F3),

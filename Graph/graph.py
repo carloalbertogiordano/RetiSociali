@@ -96,16 +96,6 @@ class Graph:
         :return: The number of nodes in the graph
         """
         return self.graph.vcount()
-
-    """def calculate_budget(self, cost_fun):
-        budget = 0
-        degrees = self.graph.degree()
-        degrees_dict = {v.index: degree for v, degree in zip(self.graph.vs, degrees)}
-        top5 = sorted(degrees_dict.items(), key=lambda item: item[1], reverse=True)[:5]
-        top5_nomi = [(self.graph.vs[i]["name"], degree) for i, degree in top5]
-        for name, val in top5_nomi:
-            budget += cost_fun(node_label=name, igraph=self.graph, graph=self)
-        return budget"""
         
     def calculate_budget(self, cost_fun):
         num_top_nodes = math.ceil(self.get_node_num()/10)
@@ -113,7 +103,7 @@ class Graph:
         budget = 0
         node_cost = [cost_fun(node_label=n, igraph=self.graph, graph=self) for n in self.get_nodes_list()]
         node_cost = sorted(node_cost, reverse=True)
-        print(f"costi: {node_cost}")
+        #print(f"costi: {node_cost}")
         for i in range(0,num_top_nodes):
             budget += node_cost[i]
         
@@ -144,6 +134,7 @@ class Graph:
         self._neighbor_cache = {}
         self._degree_cache = {}
         self._node_list_cache = ()
+        self.budget = self.calculate_budget(self.cost_fun)
 
     def get_nodes_list(self):
         """
@@ -351,20 +342,21 @@ class Graph:
                 obj_fun = self.calc_majority_cascade_on_seed_set
 
         alg = GeneticAlgo(
-            self,
-            0.5,
-            0.25,
-            0.5,
-            0.5,
-            int(self.get_node_num() * 0.3), # 30%
-            1000, # tmp gen number
-            self.cost_fun,
-            obj_fun,
-            True
+            self,  # graph: Graph
+            cxpb=0.8,  # 1. crossover probability
+            mutpb=0.1,  # 2. mutation probability
+            indpb_crossover=0.2,  # 3. gene‐swap prob in uniform crossover
+            indpb_mutation=0.01,  # 4. bit‐flip prob in mutation
+            population_size=200,  # 5. numero di individui
+            num_generations=300,  # 6. generazioni totali
+            cost_function=self.cost_fun,  # 7. funzione di costo
+            fitness_function=obj_fun,  # 8. funzione di fitness
+            verbose=True,  # 9. stampa debug
+            new_ind_fraction=0.1  # 10. frazione nuovi individui
         )
 
         result = alg.run() # -> best_individual, best_seed_set, best_fitness
-        self.seedSet = result[1]
+        self.seedSet = result
 
 
     def calc_seed_set(self, method, *args, **kwargs):

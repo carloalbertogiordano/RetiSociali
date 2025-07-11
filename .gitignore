@@ -101,3 +101,4 @@ Graph/__pycache__
 *.gif
 results/plots/plot_cascade/images/*.png
 results/images/*.png
+sourceData
