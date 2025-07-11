@@ -97,15 +97,26 @@ class Graph:
         """
         return self.graph.vcount()
 
-    def calculate_budget(self, cost_fun):
+    """def calculate_budget(self, cost_fun):
         budget = 0
-
         degrees = self.graph.degree()
         degrees_dict = {v.index: degree for v, degree in zip(self.graph.vs, degrees)}
         top5 = sorted(degrees_dict.items(), key=lambda item: item[1], reverse=True)[:5]
         top5_nomi = [(self.graph.vs[i]["name"], degree) for i, degree in top5]
         for name, val in top5_nomi:
             budget += cost_fun(node_label=name, igraph=self.graph, graph=self)
+        return budget"""
+        
+    def calculate_budget(self, cost_fun):
+        num_top_nodes = math.ceil(self.get_node_num()/10)
+        #num_top_nodes = 5
+        budget = 0
+        node_cost = [cost_fun(node_label=n, igraph=self.graph, graph=self) for n in self.get_nodes_list()]
+        node_cost = sorted(node_cost, reverse=True)
+        print(f"costi: {node_cost}")
+        for i in range(0,num_top_nodes):
+            budget += node_cost[i]
+        
         return budget
 
     def get_neighbors(self, v):
