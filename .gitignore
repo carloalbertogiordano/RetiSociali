@@ -102,3 +102,8 @@ Graph/__pycache__
 results/plots/plot_cascade/images/*.png
 results/images/*.png
 sourceData
+.idea/deployment.xml
+.idea/misc.xml
+.idea/RetiSociali.iml
+/.idea
+*.iml
