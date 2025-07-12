@@ -8,24 +8,33 @@ Genetic Algorithm Multi-Objective (Seed Size and Cost) with Budget Constraint
 – Parallelizzazione con Dask Distributed
 """
 import os
-
-from deap import base, creator, tools
-from Graph.graph import Graph
+import logging
 import random
 from functools import partial
 from dask.distributed import Client
+import cloudpickle
+from deap import base, creator, tools
+from Graph.graph import Graph
+
+# Configura il logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 #===============================================================================
 # Evaluation function
 #===============================================================================
 def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
+    """Valuta un individuo calcolando dimensione del seed set e costo."""
+    logger.debug("Inizio valutazione individuo")
     active = individual.count(1)
     seed_set = {node_list[i] for i, g in enumerate(individual) if g == 1}
 
     # Compute spread
     try:
         spread_res = fitness_function(seed_set)
-    except Exception:
+        logger.debug(f"Risultato spread: {spread_res}")
+    except Exception as e:
+        logger.error(f"Errore in fitness_function per seed_set {seed_set}: {e}")
         spread_res = 0
 
     if isinstance(spread_res, (set, list)):
@@ -37,19 +46,24 @@ def evaluate_individual(individual, node_list, fitness_function, cost_function, 
 
     # Compute cost
     cost = graph.cost_seed_set(seed_set, cost_function)
+    logger.debug(f"Costo calcolato: {cost}")
 
     # Penalty for invalid
     if cost <= 0 or cost > graph.budget:
+        logger.debug("Individuo non valido: costo fuori dai limiti")
         return (0, graph.budget * 2)
 
     # Valid individual
     size = len(seed_set)
+    logger.debug(f"Fine valutazione individuo: size={size}, cost={cost}")
     return (size, cost)
 
 #===============================================================================
 # Custom initializer within budget
 #===============================================================================
 def init_valid_individual(node_list, graph, cost_function):
+    """Inizializza un individuo valido rispettando il budget."""
+    logger.debug("Inizio inizializzazione individuo valido")
     individual = [0] * len(node_list)
     budget = graph.budget
     total_cost = 0
@@ -65,17 +79,23 @@ def init_valid_individual(node_list, graph, cost_function):
             individual[idx] = 1
             total_cost += node_cost
 
+    logger.debug(f"Fine inizializzazione individuo: costo totale={total_cost}")
     return creator.Individual(individual)
 
 #===============================================================================
 # Selection: NSGA-II filtered by budget
 #===============================================================================
 def sel_nsga2_filtered(population, k, budget):
+    """Selezione NSGA-II con filtro sul budget."""
+    logger.debug("Inizio selezione NSGA-II filtrata")
     valid = [ind for ind in population if ind.fitness.values[1] <= budget]
+    logger.debug(f"Individui validi: {len(valid)}")
     if len(valid) < k:
-        return tools.selNSGA2(population, k)
+        result = tools.selNSGA2(population, k)
     else:
-        return tools.selNSGA2(valid, k)
+        result = tools.selNSGA2(valid, k)
+    logger.debug("Fine selezione NSGA-II filtrata")
+    return result
 
 #===============================================================================
 # Genetic Algorithm Class
@@ -89,7 +109,8 @@ class GeneticAlgo:
                  fitness_function=Graph.calc_majority_cascade_on_seed_set,
                  verbose=True,
                  new_ind_fraction=0.1,
-                 dask_scheduler='tcp://'+os.getenv('SCHEDULER_ADDR')+':8786'):
+                 dask_scheduler='tcp://192.168.188.60:8786'):
+        """Inizializza l'algoritmo genetico."""
         self.graph = graph
         self.node_list = graph.get_nodes_list()
         self.node_num = len(self.node_list)
@@ -104,11 +125,20 @@ class GeneticAlgo:
         self.verbose = verbose
         self.new_ind_fraction = new_ind_fraction
 
-        self.client = Client(dask_scheduler)
+        # Connessione al cluster Dask con controllo
+        logger.info("Tentativo di connessione al cluster Dask")
+        try:
+            self.client = Client(dask_scheduler)
+            logger.info(f"Connesso al cluster Dask: {self.client}")
+        except Exception as e:
+            logger.error(f"Errore connessione al cluster Dask: {e}")
+            raise
 
         self._setup_deap()
 
     def _setup_deap(self):
+        """Configura gli strumenti DEAP."""
+        logger.debug("Configurazione DEAP")
         # Multi-objective: maximize size, minimize cost
         if not hasattr(creator, "FitnessMulti"):
             creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))
@@ -116,7 +146,6 @@ class GeneticAlgo:
             creator.create("Individual", list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()
-        # Operatori di base (non usati quando si usa init_valid_ind)
         toolbox.register("attr_bool", random.randint, 0, 1)
         toolbox.register("individual", tools.initRepeat, creator.Individual,
                          toolbox.attr_bool, self.node_num)
@@ -130,8 +159,12 @@ class GeneticAlgo:
         toolbox.register("select", partial(sel_nsga2_filtered, budget=self.graph.budget))
 
         self.toolbox = toolbox
+        logger.debug("Fine configurazione DEAP")
 
     def run(self):
+        """Esegue l'algoritmo genetico."""
+        logger.info("Inizio esecuzione algoritmo genetico")
+
         # Registra la funzione di valutazione
         eval_fn = partial(evaluate_individual,
                           node_list=self.node_list,
@@ -140,62 +173,102 @@ class GeneticAlgo:
                           graph=self.graph)
         self.toolbox.register("evaluate", eval_fn)
 
+        # Controllo serializzabilità della funzione di valutazione
+        try:
+            cloudpickle.dumps(eval_fn)
+            logger.info("Funzione di valutazione serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione funzione di valutazione: {e}")
+            raise
+
         # Inizializza popolazione
-        pop = self.toolbox.population(n=self.pop_size)
+        logger.info("Inizializzazione popolazione")
+        pop = [self.toolbox.init_valid_ind() for _ in range(self.pop_size)]
+        logger.info(f"Popolazione inizializzata con {len(pop)} individui")
+
+        # Controllo serializzabilità di un individuo
+        try:
+            cloudpickle.dumps(pop[0])
+            logger.info("Individuo serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione individuo: {e}")
+            raise
 
         # Prima valutazione
-        futures = self.client.map(self.toolbox.evaluate, pop)
-        fits = self.client.gather(futures)
-        for ind, fit in zip(pop, fits):
-            ind.fitness.values = fit
+        batch_size = 50
+        logger.info(f"Valutazione iniziale in batch di {batch_size}")
+        for i in range(0, len(pop), batch_size):
+            batch = pop[i:i + batch_size]
+            logger.debug(f"Invio batch {i//batch_size} con {len(batch)} individui")
+            futures = self.client.map(self.toolbox.evaluate, batch)
+            try:
+                fits = self.client.gather(futures)
+                for ind, fit in zip(batch, fits):
+                    ind.fitness.values = fit
+                logger.debug(f"Batch {i//batch_size} valutato con successo")
+            except Exception as e:
+                logger.error(f"Errore nel gather del batch {i//batch_size}: {e}")
+                raise
 
         # Ciclo evolutivo
         for gen in range(1, self.num_generations + 1):
-            print(f"\n[RUN DEBUG] === Generation {gen} ===")
+            logger.info(f"\n[RUN DEBUG] === Generation {gen} ===")
 
             # Selezione
             offspring = self.toolbox.select(pop, len(pop))
-            # Clonazione
             offspring = [creator.Individual(ind[:]) for ind in offspring]
 
             # Crossover
+            logger.debug("Inizio crossover")
             for i in range(1, len(offspring), 2):
                 if random.random() < self.cxpb:
                     self.toolbox.mate(offspring[i-1], offspring[i])
                     del offspring[i-1].fitness.values
                     del offspring[i].fitness.values
+            logger.debug("Fine crossover")
 
             # Mutazione
+            logger.debug("Inizio mutazione")
             for ind in offspring:
                 if random.random() < self.mutpb:
                     self.toolbox.mutate(ind)
                     del ind.fitness.values
+            logger.debug("Fine mutazione")
 
-            # Iniezione nuovi individui validi
+            # Iniezione nuovi individui
             num_new = max(1, int(self.pop_size * self.new_ind_fraction))
             new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
             offspring[-num_new:] = new_inds
+            logger.debug(f"Iniettati {num_new} nuovi individui")
 
-            # Valuta solo gli invalid
+            # Valuta solo gli invalidi
             invalid = [ind for ind in offspring if not ind.fitness.valid]
-            if invalid:
-                futures = self.client.map(self.toolbox.evaluate, invalid)
-                fits = self.client.gather(futures)
-                for ind, fit in zip(invalid, fits):
-                    ind.fitness.values = fit
+            logger.info(f"Individui da valutare: {len(invalid)}")
+            for i in range(0, len(invalid), batch_size):
+                batch = invalid[i:i + batch_size]
+                logger.debug(f"Invio batch {i//batch_size} gen {gen} con {len(batch)} individui")
+                futures = self.client.map(self.toolbox.evaluate, batch)
+                try:
+                    fits = self.client.gather(futures)
+                    for ind, fit in zip(batch, fits):
+                        ind.fitness.values = fit
+                    logger.debug(f"Batch {i//batch_size} gen {gen} valutato")
+                except Exception as e:
+                    logger.error(f"Errore gather batch {i//batch_size} gen {gen}: {e}")
+                    raise
 
             pop[:] = offspring
 
-            # Statistiche a video
+            # Statistiche
             sizes = [ind.fitness.values[0] for ind in pop]
             costs = [ind.fitness.values[1] for ind in pop]
             if self.verbose:
-                print(f"[STATS] Gen {gen}: max size={max(sizes)}, min cost={min(costs)}")
+                logger.info(f"[STATS] Gen {gen}: max size={max(sizes)}, min cost={min(costs)}")
 
         # Estrai Pareto front
         front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
         valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
-        print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
+        logger.info(f"[FINAL] Soluzioni Pareto entro budget: {len(valid_front)}")
 
         # Costruisci risultati
         results = []
@@ -208,7 +281,7 @@ class GeneticAlgo:
 
         # Scegli il migliore
         best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
-        print(f"[RESULT] Best seed set: {best_result['seed_set']} "
-              f"with fitness {best_result['fitness']} (budget={self.graph.budget})")
+        logger.info(f"[RESULT] Miglior seed set: {best_result['seed_set']} "
+                    f"con fitness {best_result['fitness']} (budget={self.graph.budget})")
 
         return best_result['seed_set']
