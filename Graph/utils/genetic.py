@@ -134,7 +134,38 @@ class GeneticAlgo:
             logger.error(f"Errore connessione al cluster Dask: {e}")
             raise
 
+        # Controlli di serializzazione iniziali
+        self._check_serialization()
+
         self._setup_deap()
+
+    def _check_serialization(self):
+        """Verifica la serializzabilità degli oggetti critici con cloudpickle."""
+        logger.info("Verifica della serializzabilità degli oggetti critici")
+
+        # Controllo per graph
+        try:
+            cloudpickle.dumps(self.graph)
+            logger.info("Oggetto 'graph' serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione 'graph': {e}")
+            raise
+
+        # Controllo per fitness_function
+        try:
+            cloudpickle.dumps(self.fitness_function)
+            logger.info("Funzione 'fitness_function' serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione 'fitness_function': {e}")
+            raise
+
+        # Controllo per cost_function
+        try:
+            cloudpickle.dumps(self.cost_function)
+            logger.info("Funzione 'cost_function' serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione 'cost_function': {e}")
+            raise
 
     def _setup_deap(self):
         """Configura gli strumenti DEAP."""
@@ -176,9 +207,9 @@ class GeneticAlgo:
         # Controllo serializzabilità della funzione di valutazione
         try:
             cloudpickle.dumps(eval_fn)
-            logger.info("Funzione di valutazione serializzabile")
+            logger.info("Funzione di valutazione 'eval_fn' serializzabile")
         except Exception as e:
-            logger.error(f"Errore serializzazione funzione di valutazione: {e}")
+            logger.error(f"Errore serializzazione 'eval_fn': {e}")
             raise
 
         # Inizializza popolazione
@@ -189,9 +220,17 @@ class GeneticAlgo:
         # Controllo serializzabilità di un individuo
         try:
             cloudpickle.dumps(pop[0])
-            logger.info("Individuo serializzabile")
+            logger.info("Individuo 'pop[0]' serializzabile")
         except Exception as e:
-            logger.error(f"Errore serializzazione individuo: {e}")
+            logger.error(f"Errore serializzazione individuo 'pop[0]': {e}")
+            raise
+
+        # Controllo serializzabilità della popolazione (opzionale)
+        try:
+            cloudpickle.dumps(pop)
+            logger.info("Popolazione 'pop' serializzabile")
+        except Exception as e:
+            logger.error(f"Errore serializzazione 'pop': {e}")
             raise
 
         # Prima valutazione
