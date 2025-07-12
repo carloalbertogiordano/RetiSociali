@@ -347,8 +347,8 @@ class Graph:
             mutpb=0.1,  # 2. mutation probability
             indpb_crossover=0.2,  # 3. gene‐swap prob in uniform crossover
             indpb_mutation=0.01,  # 4. bit‐flip prob in mutation
-            population_size=200,  # 5. numero di individui
-            num_generations=300,  # 6. generazioni totali
+            population_size=20,  # 5. numero di individui
+            num_generations=10,  # 6. generazioni totali
             cost_function=self.cost_fun,  # 7. funzione di costo
             fitness_function=obj_fun,  # 8. funzione di fitness
             verbose=True,  # 9. stampa debug

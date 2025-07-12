@@ -8,34 +8,25 @@ Genetic Algorithm Multi-Objective (Seed Size and Cost) with Budget Constraint
 – Parallelizzazione con Dask Distributed
 """
 import os
-import logging
+
+from deap import base, creator, tools
+from Graph.graph import Graph
 import random
 from functools import partial
 from dask.distributed import Client
-import cloudpickle
-from deap import base, creator, tools
-from Graph.graph import Graph
-
-# Configura il logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+from dask import config
 
 #===============================================================================
 # Evaluation function
 #===============================================================================
 def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
-    """Valuta un individuo calcolando dimensione del seed set e costo."""
-    return (sum(individual), 0)
-    logger.debug("Inizio valutazione individuo")
     active = individual.count(1)
     seed_set = {node_list[i] for i, g in enumerate(individual) if g == 1}
 
     # Compute spread
     try:
         spread_res = fitness_function(seed_set)
-        logger.debug(f"Risultato spread: {spread_res}")
-    except Exception as e:
-        logger.error(f"Errore in fitness_function per seed_set {seed_set}: {e}")
+    except Exception:
         spread_res = 0
 
     if isinstance(spread_res, (set, list)):
@@ -47,24 +38,19 @@ def evaluate_individual(individual, node_list, fitness_function, cost_function, 
 
     # Compute cost
     cost = graph.cost_seed_set(seed_set, cost_function)
-    logger.debug(f"Costo calcolato: {cost}")
 
     # Penalty for invalid
     if cost <= 0 or cost > graph.budget:
-        logger.debug("Individuo non valido: costo fuori dai limiti")
         return (0, graph.budget * 2)
 
     # Valid individual
     size = len(seed_set)
-    logger.debug(f"Fine valutazione individuo: size={size}, cost={cost}")
     return (size, cost)
 
 #===============================================================================
 # Custom initializer within budget
 #===============================================================================
 def init_valid_individual(node_list, graph, cost_function):
-    """Inizializza un individuo valido rispettando il budget."""
-    logger.debug("Inizio inizializzazione individuo valido")
     individual = [0] * len(node_list)
     budget = graph.budget
     total_cost = 0
@@ -80,23 +66,17 @@ def init_valid_individual(node_list, graph, cost_function):
             individual[idx] = 1
             total_cost += node_cost
 
-    logger.debug(f"Fine inizializzazione individuo: costo totale={total_cost}")
     return creator.Individual(individual)
 
 #===============================================================================
 # Selection: NSGA-II filtered by budget
 #===============================================================================
 def sel_nsga2_filtered(population, k, budget):
-    """Selezione NSGA-II con filtro sul budget."""
-    logger.debug("Inizio selezione NSGA-II filtrata")
     valid = [ind for ind in population if ind.fitness.values[1] <= budget]
-    logger.debug(f"Individui validi: {len(valid)}")
     if len(valid) < k:
-        result = tools.selNSGA2(population, k)
+        return tools.selNSGA2(population, k)
     else:
-        result = tools.selNSGA2(valid, k)
-    logger.debug("Fine selezione NSGA-II filtrata")
-    return result
+        return tools.selNSGA2(valid, k)
 
 #===============================================================================
 # Genetic Algorithm Class
@@ -111,7 +91,6 @@ class GeneticAlgo:
                  verbose=True,
                  new_ind_fraction=0.1,
                  dask_scheduler='tcp://192.168.188.60:8786'):
-        """Inizializza l'algoritmo genetico."""
         self.graph = graph
         self.node_list = graph.get_nodes_list()
         self.node_num = len(self.node_list)
@@ -126,61 +105,12 @@ class GeneticAlgo:
         self.verbose = verbose
         self.new_ind_fraction = new_ind_fraction
 
-        # Connessione al cluster Dask con controllo
-        logger.info("Tentativo di connessione al cluster Dask")
-        try:
-            self.client = Client(dask_scheduler)
-            logger.info(f"Connesso al cluster Dask: {self.client}")
-        except Exception as e:
-            logger.error(f"Errore connessione al cluster Dask: {e}")
-            raise
+        config.set({'interface': 'lo'})  # <---found out to use 'lo' by running ifconfig in shell
+        self.client = Client(dask_scheduler)
 
-        # Controlli di serializzazione iniziali
-        self._check_serialization()
-
-        # Setup DEAP
         self._setup_deap()
 
-        # 🔧 REGISTRAZIONE FUNZIONE DI VALUTAZIONE
-        eval_fn = partial(evaluate_individual,
-                          node_list=self.node_list,
-                          fitness_function=self.fitness_function,
-                          cost_function=self.cost_function,
-                          graph=self.graph)
-        self.toolbox.register("evaluate", eval_fn)
-        self.eval_fn = eval_fn
-
-    def _check_serialization(self):
-        """Verifica la serializzabilità degli oggetti critici con cloudpickle."""
-        logger.info("Verifica della serializzabilità degli oggetti critici")
-
-        # Controllo per graph
-        try:
-            cloudpickle.dumps(self.graph)
-            logger.info("Oggetto 'graph' serializzabile")
-        except Exception as e:
-            logger.error(f"Errore serializzazione 'graph': {e}")
-            raise
-
-        # Controllo per fitness_function
-        try:
-            cloudpickle.dumps(self.fitness_function)
-            logger.info("Funzione 'fitness_function' serializzabile")
-        except Exception as e:
-            logger.error(f"Errore serializzazione 'fitness_function': {e}")
-            raise
-
-        # Controllo per cost_function
-        try:
-            cloudpickle.dumps(self.cost_function)
-            logger.info("Funzione 'cost_function' serializzabile")
-        except Exception as e:
-            logger.error(f"Errore serializzazione 'cost_function': {e}")
-            raise
-
     def _setup_deap(self):
-        """Configura gli strumenti DEAP."""
-        logger.debug("Configurazione DEAP")
         # Multi-objective: maximize size, minimize cost
         if not hasattr(creator, "FitnessMulti"):
             creator.create("FitnessMulti", base.Fitness, weights=(1.0, -1.0))
@@ -188,6 +118,7 @@ class GeneticAlgo:
             creator.create("Individual", list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()
+        # Operatori di base (non usati quando si usa init_valid_ind)
         toolbox.register("attr_bool", random.randint, 0, 1)
         toolbox.register("individual", tools.initRepeat, creator.Individual,
                          toolbox.attr_bool, self.node_num)
@@ -201,15 +132,85 @@ class GeneticAlgo:
         toolbox.register("select", partial(sel_nsga2_filtered, budget=self.graph.budget))
 
         self.toolbox = toolbox
-        logger.debug("Fine configurazione DEAP")
 
     def run(self):
-        ind = self.toolbox.init_valid_ind()
-        future = self.client.submit(self.toolbox.evaluate, ind)
+        # Registra la funzione di valutazione
+        eval_fn = partial(evaluate_individual,
+                          node_list=self.node_list,
+                          fitness_function=self.fitness_function,
+                          cost_function=self.cost_function,
+                          graph=self.graph)
+        self.toolbox.register("evaluate", eval_fn)
 
-        try:
-            result = self.client.gather(future)
-            print("Risultato valutazione:", result)
-        except Exception as e:
-            logger.error("Errore durante la valutazione distribuita:")
-            logger.exception(e)  # mostra stack trace completo
+        # Inizializza popolazione
+        pop = self.toolbox.population(n=self.pop_size)
+
+        # Prima valutazione
+        futures = self.client.map(self.toolbox.evaluate, pop)
+        fits = self.client.gather(futures)
+        for ind, fit in zip(pop, fits):
+            ind.fitness.values = fit
+
+        # Ciclo evolutivo
+        for gen in range(1, self.num_generations + 1):
+            print(f"\n[RUN DEBUG] === Generation {gen} ===")
+
+            # Selezione
+            offspring = self.toolbox.select(pop, len(pop))
+            # Clonazione
+            offspring = [creator.Individual(ind[:]) for ind in offspring]
+
+            # Crossover
+            for i in range(1, len(offspring), 2):
+                if random.random() < self.cxpb:
+                    self.toolbox.mate(offspring[i-1], offspring[i])
+                    del offspring[i-1].fitness.values
+                    del offspring[i].fitness.values
+
+            # Mutazione
+            for ind in offspring:
+                if random.random() < self.mutpb:
+                    self.toolbox.mutate(ind)
+                    del ind.fitness.values
+
+            # Iniezione nuovi individui validi
+            num_new = max(1, int(self.pop_size * self.new_ind_fraction))
+            new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
+            offspring[-num_new:] = new_inds
+
+            # Valuta solo gli invalid
+            invalid = [ind for ind in offspring if not ind.fitness.valid]
+            if invalid:
+                futures = self.client.map(self.toolbox.evaluate, invalid)
+                fits = self.client.gather(futures)
+                for ind, fit in zip(invalid, fits):
+                    ind.fitness.values = fit
+
+            pop[:] = offspring
+
+            # Statistiche a video
+            sizes = [ind.fitness.values[0] for ind in pop]
+            costs = [ind.fitness.values[1] for ind in pop]
+            if self.verbose:
+                print(f"[STATS] Gen {gen}: max size={max(sizes)}, min cost={min(costs)}")
+
+        # Estrai Pareto front
+        front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
+        valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
+        print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
+
+        # Costruisci risultati
+        results = []
+        for ind in valid_front:
+            seed_set = [self.node_list[i] for i, g in enumerate(ind) if g == 1]
+            results.append({
+                'seed_set': seed_set,
+                'fitness': ind.fitness.values
+            })
+
+        # Scegli il migliore
+        best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
+        print(f"[RESULT] Best seed set: {best_result['seed_set']} "
+              f"with fitness {best_result['fitness']} (budget={self.graph.budget})")
+
+        return best_result['seed_set']

@@ -58,7 +58,7 @@ def main():
 
     data_file = 'sourceData/facebook_data/facebook_combined.txt'
     output_dir = 'results/'
-    sub_graph_dim = 100
+    sub_graph_dim = 10
     os.makedirs(output_dir, exist_ok=True)
 
     # Build the base graph only once and share its structure
