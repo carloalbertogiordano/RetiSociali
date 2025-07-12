@@ -7,6 +7,7 @@ Genetic Algorithm Multi-Objective (Seed Size and Cost) with Budget Constraint
 – Proper error handling
 – Parallelizzazione con Dask Distributed
 """
+import os
 
 from deap import base, creator, tools
 from Graph.graph import Graph
@@ -88,7 +89,7 @@ class GeneticAlgo:
                  fitness_function=Graph.calc_majority_cascade_on_seed_set,
                  verbose=True,
                  new_ind_fraction=0.1,
-                 dask_scheduler='tcp://192.168.1.78:8786'):
+                 dask_scheduler='tcp://'+os.getenv('SCHEDULER_ADDR')+':8786'):
         self.graph = graph
         self.node_list = graph.get_nodes_list()
         self.node_num = len(self.node_list)
