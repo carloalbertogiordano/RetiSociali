@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 #===============================================================================
 def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
     """Valuta un individuo calcolando dimensione del seed set e costo."""
+    return (sum(individual), 0)
     logger.debug("Inizio valutazione individuo")
     active = individual.count(1)
     seed_set = {node_list[i] for i, g in enumerate(individual) if g == 1}
@@ -137,7 +138,17 @@ class GeneticAlgo:
         # Controlli di serializzazione iniziali
         self._check_serialization()
 
+        # Setup DEAP
         self._setup_deap()
+
+        # 🔧 REGISTRAZIONE FUNZIONE DI VALUTAZIONE
+        eval_fn = partial(evaluate_individual,
+                          node_list=self.node_list,
+                          fitness_function=self.fitness_function,
+                          cost_function=self.cost_function,
+                          graph=self.graph)
+        self.toolbox.register("evaluate", eval_fn)
+        self.eval_fn = eval_fn
 
     def _check_serialization(self):
         """Verifica la serializzabilità degli oggetti critici con cloudpickle."""
@@ -193,134 +204,12 @@ class GeneticAlgo:
         logger.debug("Fine configurazione DEAP")
 
     def run(self):
-        """Esegue l'algoritmo genetico."""
-        logger.info("Inizio esecuzione algoritmo genetico")
+        ind = self.toolbox.init_valid_ind()
+        future = self.client.submit(self.toolbox.evaluate, ind)
 
-        # Registra la funzione di valutazione
-        eval_fn = partial(evaluate_individual,
-                          node_list=self.node_list,
-                          fitness_function=self.fitness_function,
-                          cost_function=self.cost_function,
-                          graph=self.graph)
-        self.toolbox.register("evaluate", eval_fn)
-
-        # Controllo serializzabilità della funzione di valutazione
         try:
-            cloudpickle.dumps(eval_fn)
-            logger.info("Funzione di valutazione 'eval_fn' serializzabile")
+            result = self.client.gather(future)
+            print("Risultato valutazione:", result)
         except Exception as e:
-            logger.error(f"Errore serializzazione 'eval_fn': {e}")
-            raise
-
-        # Inizializza popolazione
-        logger.info("Inizializzazione popolazione")
-        pop = [self.toolbox.init_valid_ind() for _ in range(self.pop_size)]
-        logger.info(f"Popolazione inizializzata con {len(pop)} individui")
-
-        # Controllo serializzabilità di un individuo
-        try:
-            cloudpickle.dumps(pop[0])
-            logger.info("Individuo 'pop[0]' serializzabile")
-        except Exception as e:
-            logger.error(f"Errore serializzazione individuo 'pop[0]': {e}")
-            raise
-
-        # Controllo serializzabilità della popolazione (opzionale)
-        try:
-            cloudpickle.dumps(pop)
-            logger.info("Popolazione 'pop' serializzabile")
-        except Exception as e:
-            logger.error(f"Errore serializzazione 'pop': {e}")
-            raise
-
-        # Prima valutazione
-        batch_size = 50
-        logger.info(f"Valutazione iniziale in batch di {batch_size}")
-        for i in range(0, len(pop), batch_size):
-            batch = pop[i:i + batch_size]
-            logger.debug(f"Invio batch {i//batch_size} con {len(batch)} individui")
-            futures = self.client.map(self.toolbox.evaluate, batch)
-            try:
-                fits = self.client.gather(futures)
-                for ind, fit in zip(batch, fits):
-                    ind.fitness.values = fit
-                logger.debug(f"Batch {i//batch_size} valutato con successo")
-            except Exception as e:
-                logger.error(f"Errore nel gather del batch {i//batch_size}: {e}")
-                raise
-
-        # Ciclo evolutivo
-        for gen in range(1, self.num_generations + 1):
-            logger.info(f"\n[RUN DEBUG] === Generation {gen} ===")
-
-            # Selezione
-            offspring = self.toolbox.select(pop, len(pop))
-            offspring = [creator.Individual(ind[:]) for ind in offspring]
-
-            # Crossover
-            logger.debug("Inizio crossover")
-            for i in range(1, len(offspring), 2):
-                if random.random() < self.cxpb:
-                    self.toolbox.mate(offspring[i-1], offspring[i])
-                    del offspring[i-1].fitness.values
-                    del offspring[i].fitness.values
-            logger.debug("Fine crossover")
-
-            # Mutazione
-            logger.debug("Inizio mutazione")
-            for ind in offspring:
-                if random.random() < self.mutpb:
-                    self.toolbox.mutate(ind)
-                    del ind.fitness.values
-            logger.debug("Fine mutazione")
-
-            # Iniezione nuovi individui
-            num_new = max(1, int(self.pop_size * self.new_ind_fraction))
-            new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
-            offspring[-num_new:] = new_inds
-            logger.debug(f"Iniettati {num_new} nuovi individui")
-
-            # Valuta solo gli invalidi
-            invalid = [ind for ind in offspring if not ind.fitness.valid]
-            logger.info(f"Individui da valutare: {len(invalid)}")
-            for i in range(0, len(invalid), batch_size):
-                batch = invalid[i:i + batch_size]
-                logger.debug(f"Invio batch {i//batch_size} gen {gen} con {len(batch)} individui")
-                futures = self.client.map(self.toolbox.evaluate, batch)
-                try:
-                    fits = self.client.gather(futures)
-                    for ind, fit in zip(batch, fits):
-                        ind.fitness.values = fit
-                    logger.debug(f"Batch {i//batch_size} gen {gen} valutato")
-                except Exception as e:
-                    logger.error(f"Errore gather batch {i//batch_size} gen {gen}: {e}")
-                    raise
-
-            pop[:] = offspring
-
-            # Statistiche
-            sizes = [ind.fitness.values[0] for ind in pop]
-            costs = [ind.fitness.values[1] for ind in pop]
-            if self.verbose:
-                logger.info(f"[STATS] Gen {gen}: max size={max(sizes)}, min cost={min(costs)}")
-
-        # Estrai Pareto front
-        front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
-        valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
-        logger.info(f"[FINAL] Soluzioni Pareto entro budget: {len(valid_front)}")
-
-        # Costruisci risultati
-        results = []
-        for ind in valid_front:
-            seed_set = [self.node_list[i] for i, g in enumerate(ind) if g == 1]
-            results.append({
-                'seed_set': seed_set,
-                'fitness': ind.fitness.values
-            })
-
-        # Scegli il migliore
-        best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
-        logger.info(f"[RESULT] Miglior seed set: {best_result['seed_set']} "
-                    f"con fitness {best_result['fitness']} (budget={self.graph.budget})")
-
-        return best_result['seed_set']
+            logger.error("Errore durante la valutazione distribuita:")
+            logger.exception(e)  # mostra stack trace completo
