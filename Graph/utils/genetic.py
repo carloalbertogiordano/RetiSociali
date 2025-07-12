@@ -1,82 +1,58 @@
 """
 Genetic Algorithm Multi-Objective (Seed Size and Cost) with Budget Constraint
-- NSGA-II selection filtered by budget
-- Custom valid individual initializer
-- Random injection per generation
-- Detailed debug printing
-- Proper error handling
+– NSGA-II selection filtered by budget
+– Custom valid individual initializer
+– Random injection per generation
+– Detailed debug printing
+– Proper error handling
+– Parallelizzazione con Dask Distributed
 """
-from deap import base, creator, tools, algorithms
+
+from deap import base, creator, tools
 from Graph.graph import Graph
 import random
-import multiprocessing
 from functools import partial
+from dask.distributed import Client
 
 #===============================================================================
 # Evaluation function
 #===============================================================================
 def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
-    """
-    Multi-objective evaluation:
-      1) maximize seed set size
-      2) minimize cost
-    Constraint: cost must be <= budget to be admissible.
-
-    Returns:
-      (size, cost) for valid individuals
-      (0, budget*2) penalty for invalid individuals
-    """
-    # Count active genes
     active = individual.count(1)
-    #print(f"[EVAL DEBUG] Active genes: {active}/{len(individual)}")
-
-    # Build seed set
     seed_set = {node_list[i] for i, g in enumerate(individual) if g == 1}
-    #print(f"[EVAL DEBUG] Seed set: size={len(seed_set)}, ids(sample)={list(seed_set)[:5]}...")
 
-    # Compute spread (not used directly, but can be integrated if needed)
+    # Compute spread
     try:
         spread_res = fitness_function(seed_set)
-        #print(f"[DEBUG] Spread result sample: {spread_res}")
-    except Exception as e:
-        #print(f"[EVAL ERROR] fitness_function exception: {e}")
+    except Exception:
         spread_res = 0
-    # Convert spread to numeric
+
     if isinstance(spread_res, (set, list)):
         spread = len(spread_res)
     elif isinstance(spread_res, (int, float)):
         spread = spread_res
     else:
-        #print(f"[EVAL WARNING] Unexpected spread type {type(spread_res)}, defaulting to 0")
         spread = 0
-    #print(f"[EVAL DEBUG] Spread: {spread}")
 
     # Compute cost
     cost = graph.cost_seed_set(seed_set, cost_function)
-    #print(f"[EVAL DEBUG] Cost: {cost} (Budget: {graph.budget})")
 
     # Penalty for invalid
     if cost <= 0 or cost > graph.budget:
-        #print("[EVAL DEBUG] Invalid individual: applying penalty")
         return (0, graph.budget * 2)
 
     # Valid individual
     size = len(seed_set)
-    #print(f"[EVAL DEBUG] Valid: size={size}, cost={cost}")
     return (size, cost)
 
 #===============================================================================
 # Custom initializer within budget
 #===============================================================================
 def init_valid_individual(node_list, graph, cost_function):
-    """
-    Create an individual with random greedy selection under budget.
-    """
     individual = [0] * len(node_list)
     budget = graph.budget
     total_cost = 0
 
-    # Shuffle nodes and try include greedily
     indices = list(range(len(node_list)))
     random.shuffle(indices)
     for idx in indices:
@@ -87,25 +63,17 @@ def init_valid_individual(node_list, graph, cost_function):
         if total_cost + node_cost <= budget:
             individual[idx] = 1
             total_cost += node_cost
-    #print(f"[INIT DEBUG] Generated valid individual with cost={total_cost}")
+
     return creator.Individual(individual)
 
 #===============================================================================
 # Selection: NSGA-II filtered by budget
 #===============================================================================
 def sel_nsga2_filtered(population, k, budget):
-    """
-    Apply NSGA-II selection on individuals within budget.
-    If not enough, fallback to full population.
-    """
-    # Filter by budget
     valid = [ind for ind in population if ind.fitness.values[1] <= budget]
-    #print(f"[SEL DEBUG] Total pop={len(population)}, valid={len(valid)}, required={k}")
     if len(valid) < k:
-        #print("[SEL DEBUG] Not enough valid, applying NSGA-II on full pop")
         return tools.selNSGA2(population, k)
     else:
-        #print("[SEL DEBUG] Applying NSGA-II on filtered valid subset")
         return tools.selNSGA2(valid, k)
 
 #===============================================================================
@@ -119,7 +87,8 @@ class GeneticAlgo:
                  cost_function,
                  fitness_function=Graph.calc_majority_cascade_on_seed_set,
                  verbose=True,
-                 new_ind_fraction=0.1):
+                 new_ind_fraction=0.1,
+                 dask_scheduler='tcp://192.168.1.78:8786'):
         self.graph = graph
         self.node_list = graph.get_nodes_list()
         self.node_num = len(self.node_list)
@@ -133,6 +102,9 @@ class GeneticAlgo:
         self.fitness_function = fitness_function
         self.verbose = verbose
         self.new_ind_fraction = new_ind_fraction
+
+        self.client = Client(dask_scheduler)
+
         self._setup_deap()
 
     def _setup_deap(self):
@@ -143,96 +115,99 @@ class GeneticAlgo:
             creator.create("Individual", list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()
-        # Operators
+        # Operatori di base (non usati quando si usa init_valid_ind)
         toolbox.register("attr_bool", random.randint, 0, 1)
         toolbox.register("individual", tools.initRepeat, creator.Individual,
                          toolbox.attr_bool, self.node_num)
         toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
+        # Inizializzatore custom
         toolbox.register("init_valid_ind", init_valid_individual,
                          self.node_list, self.graph, self.cost_function)
         toolbox.register("mate", tools.cxUniform, indpb=self.indpb_crossover)
         toolbox.register("mutate", tools.mutFlipBit, indpb=self.indpb_mutation)
-        # Selection with budget
         toolbox.register("select", partial(sel_nsga2_filtered, budget=self.graph.budget))
 
         self.toolbox = toolbox
 
     def run(self):
-        # Parallel evaluation
-        with multiprocessing.Pool() as pool:
-            self.toolbox.register("map", pool.map)
-            eval_fn = partial(evaluate_individual,
-                             node_list=self.node_list,
-                             fitness_function=self.fitness_function,
-                             cost_function=self.cost_function,
-                             graph=self.graph)
-            self.toolbox.register("evaluate", eval_fn)
+        # Registra la funzione di valutazione
+        eval_fn = partial(evaluate_individual,
+                          node_list=self.node_list,
+                          fitness_function=self.fitness_function,
+                          cost_function=self.cost_function,
+                          graph=self.graph)
+        self.toolbox.register("evaluate", eval_fn)
 
-            # Initialize population
-            pop = self.toolbox.population(n=self.pop_size)
-            # Evaluate
-            fits = list(self.toolbox.map(self.toolbox.evaluate, pop))
-            for ind, fit in zip(pop, fits):
-                ind.fitness.values = fit
+        # Inizializza popolazione
+        pop = self.toolbox.population(n=self.pop_size)
 
-            # Evolution
-            for gen in range(1, self.num_generations + 1):
-                print(f"\n[RUN DEBUG] === Generation {gen} ===")
-                # Select
-                offspring = self.toolbox.select(pop, len(pop))
-                # Clone
-                offspring = [creator.Individual(ind[:]) for ind in offspring]
+        # Prima valutazione
+        futures = self.client.map(self.toolbox.evaluate, pop)
+        fits = self.client.gather(futures)
+        for ind, fit in zip(pop, fits):
+            ind.fitness.values = fit
 
-                # Crossover
-                for i in range(1, len(offspring), 2):
-                    if random.random() < self.cxpb:
-                        self.toolbox.mate(offspring[i-1], offspring[i])
-                        del offspring[i-1].fitness.values
-                        del offspring[i].fitness.values
+        # Ciclo evolutivo
+        for gen in range(1, self.num_generations + 1):
+            print(f"\n[RUN DEBUG] === Generation {gen} ===")
 
-                # Mutation
-                for ind in offspring:
-                    if random.random() < self.mutpb:
-                        self.toolbox.mutate(ind)
-                        del ind.fitness.values
+            # Selezione
+            offspring = self.toolbox.select(pop, len(pop))
+            # Clonazione
+            offspring = [creator.Individual(ind[:]) for ind in offspring]
 
-                # Inject new valid individuals
-                num_new = max(1, int(self.pop_size * self.new_ind_fraction))
-                new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
-                #print(f"[RUN DEBUG] Injecting {num_new} new individuals")
-                # Replace worst by cost ascending
-                offspring[-num_new:] = new_inds
+            # Crossover
+            for i in range(1, len(offspring), 2):
+                if random.random() < self.cxpb:
+                    self.toolbox.mate(offspring[i-1], offspring[i])
+                    del offspring[i-1].fitness.values
+                    del offspring[i].fitness.values
 
-                # Evaluate invalid
-                invalid = [ind for ind in offspring if not ind.fitness.valid]
-                fits = list(self.toolbox.map(self.toolbox.evaluate, invalid))
+            # Mutazione
+            for ind in offspring:
+                if random.random() < self.mutpb:
+                    self.toolbox.mutate(ind)
+                    del ind.fitness.values
+
+            # Iniezione nuovi individui validi
+            num_new = max(1, int(self.pop_size * self.new_ind_fraction))
+            new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
+            offspring[-num_new:] = new_inds
+
+            # Valuta solo gli invalid
+            invalid = [ind for ind in offspring if not ind.fitness.valid]
+            if invalid:
+                futures = self.client.map(self.toolbox.evaluate, invalid)
+                fits = self.client.gather(futures)
                 for ind, fit in zip(invalid, fits):
                     ind.fitness.values = fit
 
-                pop[:] = offspring
+            pop[:] = offspring
 
-                # Stats
-                sizes = [ind.fitness.values[0] for ind in pop]
-                costs = [ind.fitness.values[1] for ind in pop]
-                #print(f"[STATS] Max size={max(sizes)}, Min cost={min(costs)}")
+            # Statistiche a video
+            sizes = [ind.fitness.values[0] for ind in pop]
+            costs = [ind.fitness.values[1] for ind in pop]
+            if self.verbose:
+                print(f"[STATS] Gen {gen}: max size={max(sizes)}, min cost={min(costs)}")
 
-                        # Extract Pareto front
-            front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
-            # Filter final by budget
-            valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
-            print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
+        # Estrai Pareto front
+        front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
+        valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
+        print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
 
-            # Convert binary individuals to actual node IDs
-            results = []
-            for ind in valid_front:
-                seed_set = [self.node_list[i] for i, g in enumerate(ind) if g == 1]
-                results.append({
-                    'seed_set': seed_set,
-                    'fitness': ind.fitness.values
-                })
-            #print(f"RESULT: {results}")
-            # Trova il seed set con fitness massimo (priorità: dimensione, poi costo)
-            best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
-            print(f"[RESULT] Best seed set: {best_result['seed_set']} with fitness {best_result['fitness']} with total budget: {self.graph.budget}")
-            return best_result['seed_set']
+        # Costruisci risultati
+        results = []
+        for ind in valid_front:
+            seed_set = [self.node_list[i] for i, g in enumerate(ind) if g == 1]
+            results.append({
+                'seed_set': seed_set,
+                'fitness': ind.fitness.values
+            })
+
+        # Scegli il migliore
+        best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
+        print(f"[RESULT] Best seed set: {best_result['seed_set']} "
+              f"with fitness {best_result['fitness']} (budget={self.graph.budget})")
+
+        return best_result['seed_set']
