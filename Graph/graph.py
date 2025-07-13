@@ -96,7 +96,7 @@ class Graph:
         :return: The number of nodes in the graph
         """
         return self.graph.vcount()
-        
+
     def calculate_budget(self, cost_fun):
         num_top_nodes = math.ceil(self.get_node_num()/10)
         #num_top_nodes = 5
@@ -106,7 +106,7 @@ class Graph:
         #print(f"costi: {node_cost}")
         for i in range(0,num_top_nodes):
             budget += node_cost[i]
-        
+
         return budget
 
     def get_neighbors(self, v):
@@ -117,6 +117,18 @@ class Graph:
             vertex = self.graph.vs.find(name=v)
             self._neighbor_cache[v] = [nbr["name"] for nbr in vertex.neighbors()]
         return self._neighbor_cache[v]
+
+    def get_nodes_list(self):
+        """
+        Return a list of all node names in the graph, in order
+        """
+        if len(self._node_list_cache) == 0:
+            nl = []
+            for v in self.graph.vs:
+                nl.append(v["name"])
+            self._node_list_cache = nl
+
+        return self._node_list_cache
 
     def get_degree(self, v):
         if v not in self._degree_cache:
@@ -135,18 +147,6 @@ class Graph:
         self._degree_cache = {}
         self._node_list_cache = ()
         self.budget = self.calculate_budget(self.cost_fun)
-
-    def get_nodes_list(self):
-        """
-        Return a list of all node names in the graph, in order
-        """
-        if len(self._node_list_cache) == 0:
-            nl = []
-            for v in self.graph.vs:
-                nl.append(v["name"])
-            self._node_list_cache = nl
-
-        return self._node_list_cache
 
     def cost_seed_set(self, S, cost):
         """
@@ -180,14 +180,15 @@ class Graph:
                 """
 
         key = frozenset(S)
-        if key in self._fun_cache and False:
+        if key in self._fun_cache:
             return self._fun_cache[key]
 
         total = 0
-        for v in self.graph.vs["name"]:
+        for v in self.get_nodes_list():
             neighbors_in_S = set(self.get_neighbors(v)).intersection(S)
             threshold = math.ceil(self.get_degree(v) / 2)
             total += min(len(neighbors_in_S), threshold)
+        self._fun_cache[key] = total
         return total
 
     def f2(self, S):
@@ -202,7 +203,7 @@ class Graph:
             return self._fun_cache[key]
 
         total = 0
-        for v in self.graph.vs["name"]:
+        for v in self.get_nodes_list():
             neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S))
             d_v = self.get_degree(v)
             threshold = math.ceil(d_v / 2)
@@ -225,14 +226,15 @@ class Graph:
             return self._fun_cache[key]
 
         total = 0
-        for v in self.graph.vs["name"]:
-            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S)) # list(set(nbr["name"] for nbr in self.graph.vs.find(name=v).neighbors()).intersection(S))
+        for v in self.get_nodes_list():
+            neighbors_in_S = list(set(self.get_neighbors(v)).intersection(S))
             d_v = self.get_degree(v)
             threshold = math.ceil(d_v / 2)
             for i in range(1, len(neighbors_in_S) + 1):
                 denom = d_v - i + 1
                 term = (threshold - i + 1) / denom if denom != 0 else 0
                 total += max(term, 0)
+        self._fun_cache[key] = total
         return total
 
     def csg(self, select_goal_fun=GoalFuncType.F1):
@@ -253,7 +255,7 @@ class Graph:
                 return
 
         # Calculate the seed set
-        V = self.graph.vs["name"]
+        V = self.get_nodes_list()
         # print(f"Node set: {V}")
         # Insieme S_p=S_d=Empty
         S_p = set()
@@ -279,11 +281,7 @@ class Graph:
         :param kwargs are ignored
         """
 
-        # select_threshold = 1 #TODO: Define functions
-
-        # thresholds = {v.index: max(1, self.graph.degree(v) // 2) for v in self.graph.vs}
-
-        V = self.graph.vs["name"]
+        V = self.get_nodes_list()
 
         U = set(V)
         S = set()
@@ -330,35 +328,58 @@ class Graph:
         self.seedSet = S
         print(f"Len seed set {len(self.seedSet)}")
 
-    def genetic_search(self, select_goal_fun=GoalFuncType.F1):
+    def genetic_search(self, select_goal_fun=GoalFuncType.F1, **genetic_params):
+        """
+        Run the genetic algorithm with customizable parameters.
+
+        :param select_goal_fun: Which objective to use (F1, F2, F3).
+        :param genetic_params: dictionary with keys
+            - crossover_probability
+            - mutation_probability
+            - gene_swap_probability
+            - bit_flip_probability
+            - population_size
+            - number_of_generations
+            - verbose
+            - new_individual_fraction
+        """
         from Graph.utils.genetic import GeneticAlgo
 
-        match select_goal_fun:
-            case GoalFuncType.F1:
-                obj_fun = self.f1
-            case GoalFuncType.F2:
-                obj_fun = self.f2
-            case GoalFuncType.F3:
-                obj_fun = self.f3
-            case _:
-                obj_fun = self.calc_majority_cascade_on_seed_set
+        # Selezione della funzione obiettivo
+        if select_goal_fun == GoalFuncType.F1:
+            obj_fun = self.f1
+        elif select_goal_fun == GoalFuncType.F2:
+            obj_fun = self.f2
+        elif select_goal_fun == GoalFuncType.F3:
+            obj_fun = self.f3
+        else:
+            obj_fun = self.calc_majority_cascade_on_seed_set
+
+        # Estrai i parametri dal dict, con valori di default identici a prima
+        cxpb = genetic_params.get('crossover_probability', 0.8)
+        mutpb = genetic_params.get('mutation_probability', 0.1)
+        indpb_crossover = genetic_params.get('gene_swap_probability', 0.2)
+        indpb_mutation = genetic_params.get('bit_flip_probability', 0.01)
+        population_size = genetic_params.get('population_size', 200)
+        num_generations = genetic_params.get('number_of_generations', 300)
+        verbose = genetic_params.get('verbose', True)
+        new_ind_fraction = genetic_params.get('new_individual_fraction', 0.1)
 
         alg = GeneticAlgo(
-            self,  # graph: Graph
-            cxpb=0.8,  # 1. crossover probability
-            mutpb=0.1,  # 2. mutation probability
-            indpb_crossover=0.2,  # 3. gene‐swap prob in uniform crossover
-            indpb_mutation=0.01,  # 4. bit‐flip prob in mutation
-            population_size=200,  # 5. numero di individui
-            num_generations=300,  # 6. generazioni totali
-            cost_function=self.cost_fun,  # 7. funzione di costo
-            fitness_function=obj_fun,  # 8. funzione di fitness
-            verbose=True,  # 9. stampa debug
-            new_ind_fraction=0.1  # 10. frazione nuovi individui
+            self,
+            cxpb=cxpb,
+            mutpb=mutpb,
+            indpb_crossover=indpb_crossover,
+            indpb_mutation=indpb_mutation,
+            population_size=population_size,
+            num_generations=num_generations,
+            cost_function=self.cost_fun,
+            fitness_function=obj_fun,
+            verbose=verbose,
+            new_ind_fraction=new_ind_fraction
         )
 
-        result = alg.run() # -> best_individual, best_seed_set, best_fitness
-        self.seedSet = result
+        self.seedSet = alg.run()
 
 
     def calc_seed_set(self, method, *args, **kwargs):
@@ -395,7 +416,7 @@ class Graph:
         if self.seedSet is None:
             return
 
-        V = set(self.graph.vs["name"])
+        V = set(self.get_nodes_list())
         cascade = []
 
         prev_influenced = set(self.seedSet)

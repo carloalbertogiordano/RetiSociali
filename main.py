@@ -23,18 +23,27 @@ def str_to_goal_func(s):
     return getattr(Gft, s.upper()) if s else None
 
 
-# ----------------- Algorithm Runner -----------------
+# ---------- Algorithm Runner ----------
 def run_algorithm(
     algorithm_type, cost_type, goal_type, info_name, data_file, output_dir,
-    sub_graph_dim, saved_graph, enable_vis=True
+    sub_graph_dim, saved_graph, enable_vis, genetic_params=None
 ):
     cost_func = Cff.create_cost_function(cost_type) if cost_type else None
-    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=info_name)
+    graph = Graph(data_file, output_dir, cost_func,
+                  is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=info_name)
     graph.set_graph(saved_graph)
 
-    print(f"[{algorithm_type.upper()}] Cost: {cost_type.name if cost_type else 'None'}, Goal: {goal_type.name if goal_type else 'None'}")
-    graph.calc_seed_set(algorithm_type, select_goal_fun=goal_type)
-    print(f"Seed set ({algorithm_type.upper()}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
+    print(f"[{algorithm_type.upper()}] Cost: {cost_type.name if cost_type else 'None'}, "
+          f"Goal: {goal_type.name if goal_type else 'None'}")
+
+    if algorithm_type == 'genetic':
+        # Passiamo i parametri al genetic_search
+        graph.genetic_search(select_goal_fun=goal_type, **(genetic_params or {}))
+    else:
+        graph.calc_seed_set(algorithm_type, select_goal_fun=goal_type)
+
+    print(f"Seed set ({algorithm_type.upper()}): {graph.get_seed_set()} "
+          f"(size={len(graph.get_seed_set())})")
 
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
@@ -60,6 +69,9 @@ def main():
 
     # Multiprocessing config
     use_multiprocessing = config.get('use_multiprocessing', True)
+
+    # Load genetic params
+    genetic_params = config.get('genetic_parameters', {})
 
     if use_multiprocessing:
         try:
@@ -89,7 +101,7 @@ def main():
             args = (
                 algo_type, cost_type, goal_type,
                 info_name, data_file, output_dir, sub_graph_dim,
-                saved_graph, enable_vis
+                saved_graph, enable_vis, genetic_params
             )
 
             if use_multiprocessing:

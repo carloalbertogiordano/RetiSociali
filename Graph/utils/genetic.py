@@ -15,7 +15,7 @@ from functools import partial
 #===============================================================================
 # Evaluation function
 #===============================================================================
-def evaluate_individual(individual, node_list, fitness_function, cost_function, graph):
+def evaluate_individual(individual, node_list, cost_function, graph, individual_cache):
     """
     Multi-objective evaluation:
       1) maximize seed set size
@@ -26,6 +26,10 @@ def evaluate_individual(individual, node_list, fitness_function, cost_function, 
       (size, cost) for valid individuals
       (0, budget*2) penalty for invalid individuals
     """
+    key = tuple(individual)
+    if key in individual_cache:
+        return individual_cache[key]
+
     # Count active genes
     active = individual.count(1)
     #print(f"[EVAL DEBUG] Active genes: {active}/{len(individual)}")
@@ -34,36 +38,21 @@ def evaluate_individual(individual, node_list, fitness_function, cost_function, 
     seed_set = {node_list[i] for i, g in enumerate(individual) if g == 1}
     #print(f"[EVAL DEBUG] Seed set: size={len(seed_set)}, ids(sample)={list(seed_set)[:5]}...")
 
-    # Compute spread (not used directly, but can be integrated if needed)
-    try:
-        spread_res = fitness_function(seed_set)
-        #print(f"[DEBUG] Spread result sample: {spread_res}")
-    except Exception as e:
-        #print(f"[EVAL ERROR] fitness_function exception: {e}")
-        spread_res = 0
-    # Convert spread to numeric
-    if isinstance(spread_res, (set, list)):
-        spread = len(spread_res)
-    elif isinstance(spread_res, (int, float)):
-        spread = spread_res
-    else:
-        #print(f"[EVAL WARNING] Unexpected spread type {type(spread_res)}, defaulting to 0")
-        spread = 0
-    #print(f"[EVAL DEBUG] Spread: {spread}")
-
     # Compute cost
     cost = graph.cost_seed_set(seed_set, cost_function)
     #print(f"[EVAL DEBUG] Cost: {cost} (Budget: {graph.budget})")
 
     # Penalty for invalid
     if cost <= 0 or cost > graph.budget:
-        #print("[EVAL DEBUG] Invalid individual: applying penalty")
-        return (0, graph.budget * 2)
+        result = (0, graph.budget * 2)
+        individual_cache[key] = result
+        return result
 
     # Valid individual
     size = len(seed_set)
-    #print(f"[EVAL DEBUG] Valid: size={size}, cost={cost}")
-    return (size, cost)
+    result = (size, cost)
+    individual_cache[key] = result
+    return result
 
 #===============================================================================
 # Custom initializer within budget
@@ -134,6 +123,7 @@ class GeneticAlgo:
         self.verbose = verbose
         self.new_ind_fraction = new_ind_fraction
         self._setup_deap()
+        self.individual_cache = {}
 
     def _setup_deap(self):
         # Multi-objective: maximize size, minimize cost
@@ -164,9 +154,9 @@ class GeneticAlgo:
             self.toolbox.register("map", pool.map)
             eval_fn = partial(evaluate_individual,
                              node_list=self.node_list,
-                             fitness_function=self.fitness_function,
                              cost_function=self.cost_function,
-                             graph=self.graph)
+                             graph=self.graph,
+                              individual_cache = self.individual_cache)
             self.toolbox.register("evaluate", eval_fn)
 
             # Initialize population
@@ -200,7 +190,7 @@ class GeneticAlgo:
                 # Inject new valid individuals
                 num_new = max(1, int(self.pop_size * self.new_ind_fraction))
                 new_inds = [self.toolbox.init_valid_ind() for _ in range(num_new)]
-                #print(f"[RUN DEBUG] Injecting {num_new} new individuals")
+                #if self.verbose: print(f"[RUN DEBUG] Injecting {num_new} new individuals")
                 # Replace worst by cost ascending
                 offspring[-num_new:] = new_inds
 
@@ -215,13 +205,13 @@ class GeneticAlgo:
                 # Stats
                 sizes = [ind.fitness.values[0] for ind in pop]
                 costs = [ind.fitness.values[1] for ind in pop]
-                #print(f"[STATS] Max size={max(sizes)}, Min cost={min(costs)}")
+                #if self.verbose: print(f"[STATS] Max size={max(sizes)}, Min cost={min(costs)}")
 
                         # Extract Pareto front
             front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
             # Filter final by budget
             valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
-            print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
+            if self.verbose: print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
 
             # Convert binary individuals to actual node IDs
             results = []
@@ -231,7 +221,7 @@ class GeneticAlgo:
                     'seed_set': seed_set,
                     'fitness': ind.fitness.values
                 })
-            #print(f"RESULT: {results}")
+            #if self.verbose: print(f"RESULT: {results}")
             # Trova il seed set con fitness massimo (priorità: dimensione, poi costo)
             best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
             print(f"[RESULT] Best seed set: {best_result['seed_set']} with fitness {best_result['fitness']} with total budget: {self.graph.budget}")
