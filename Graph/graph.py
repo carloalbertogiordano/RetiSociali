@@ -42,12 +42,12 @@ def get_subgraph(graph: ig.Graph, number: int):
 
     return graph.induced_subgraph(list(visited))
 
-class Graph:
+class GoalFuncType(Enum):
+    F1 = 1
+    F2 = 2
+    F3 = 3
 
-    class GoalFuncType(Enum):
-        F1 = 1
-        F2 = 2
-        F3 = 3
+class Graph:
 
     def __init__(self, file_path: str, save_path: str, cost_func :cost_func_base.CostFunction.calculate_cost, is_sub_graph=True, sub_graph_dim=100, info_name=""):
         """
@@ -243,11 +243,11 @@ class Graph:
         """
 
         match select_goal_fun:
-            case Graph.GoalFuncType.F1:
+            case GoalFuncType.F1:
                 obj_fun = self.f1
-            case Graph.GoalFuncType.F2:
+            case GoalFuncType.F2:
                 obj_fun = self.f2
-            case Graph.GoalFuncType.F3:
+            case GoalFuncType.F3:
                 obj_fun = self.f3
             case _:
                 return
@@ -272,9 +272,11 @@ class Graph:
         print(f"Seed set (p): {S_p}")
         self.seedSet = list(S_p)
 
-    def wtss(self):
+    def wtss(self, **kwargs):
         """
         Compute the seed set using the Weak-Tie Seed Selection (WTSS) algorithm.
+
+        :param kwargs are ignored
         """
 
         # select_threshold = 1 #TODO: Define functions
@@ -332,11 +334,11 @@ class Graph:
         from Graph.utils.genetic import GeneticAlgo
 
         match select_goal_fun:
-            case Graph.GoalFuncType.F1:
+            case GoalFuncType.F1:
                 obj_fun = self.f1
-            case Graph.GoalFuncType.F2:
+            case GoalFuncType.F2:
                 obj_fun = self.f2
-            case Graph.GoalFuncType.F3:
+            case GoalFuncType.F3:
                 obj_fun = self.f3
             case _:
                 obj_fun = self.calc_majority_cascade_on_seed_set

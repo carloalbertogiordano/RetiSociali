@@ -1,0 +1,43 @@
+use_multiprocessing: false
+
+graph:
+  file_path: "sourceData/facebook_data/facebook_combined.txt"
+  save_path: "results/"
+  is_sub_graph: true
+  sub_graph_dim: 10
+  info_name: "experiment_1"
+  cascade_visualization: true
+
+algorithms:
+  csg:
+    - cost_type: "RANDOM"
+      goal_type: "F1"
+    - cost_type: "RANDOM"
+      goal_type: "F2"
+    - cost_type: "RANDOM"
+      goal_type: "F3"
+    - cost_type: "DEGREE"
+      goal_type: "F1"
+    - cost_type: "DEGREE"
+      goal_type: "F2"
+    - cost_type: "DEGREE"
+      goal_type: "F3"
+    - cost_type: "CUSTOM"
+      goal_type: "F1"
+    - cost_type: "CUSTOM"
+      goal_type: "F2"
+    - cost_type: "CUSTOM"
+      goal_type: "F3"
+
+  wtss:
+    - cost_type: "RANDOM"
+    - cost_type: "DEGREE"
+    - cost_type: "CUSTOM"
+
+  genetic:
+    - cost_type: "RANDOM"
+      goal_type: null
+    - cost_type: "DEGREE"
+      goal_type: null
+    - cost_type: "CUSTOM"
+      goal_type: null

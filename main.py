@@ -1,140 +1,109 @@
 import os
+import yaml
 from multiprocessing import Process, set_start_method
+
 from Graph.graph import Graph
 from cost_functions.factory import CostFunctionFactory as Cff
 from cost_functions.factory import CostFuncType as Cft
+from Graph.graph import GoalFuncType as Gft  # Supponendo che esista così
 
-# Switch between sequential and parallel execution
-USE_MULTIPROCESSING = True
 
-def run_csg(cost_type, goal_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
-    print(f"[CSG] Cost: {cost_type.name}, Goal: {goal_type.name}")
-    cost_func = Cff.create_cost_function(cost_type)
-    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=test_name)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('csg', select_goal_fun=goal_type)
-    print(f"Seed set (CSG, {cost_type.name}, {goal_type.name}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade()
-    graph.save_plot(f'testCSG_{cost_type.name}_{goal_type.name}.png')
-    graph.dyn_plot_cascade()
+# ----------------- Config Loader -----------------
+def load_config(path='config.yaml'):
+    with open(path, 'r') as file:
+        return yaml.safe_load(file)
 
-def run_wtss(cost_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
-    print(f"[WTSS] Cost: {cost_type.name}")
-    cost_func = Cff.create_cost_function(cost_type)
-    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=test_name)
-    graph.set_graph(saved_graph)
-    graph.calc_seed_set('wtss')
-    print(f"Seed set (WTSS, {cost_type.name}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
-    graph.calc_majority_cascade()
-    graph.print_majority_cascade()
-    graph.plot_majority_cascade()
-    graph.save_plot(f'testWTSS_{cost_type.name}.png')
-    graph.dyn_plot_cascade()
 
-def run_genetic(cost_type, goal_type, test_name, data_file, output_dir, sub_graph_dim, saved_graph):
-    cost_name = cost_type.name if cost_type else "CASCADE"
-    goal_name = goal_type.name if goal_type else "CASCADE"
-    print(f"[GENETIC] Cost: {cost_name}, Goal: {goal_name}")
+# ----------------- Enum String Mapping -----------------
+def str_to_cost_func(s):
+    return getattr(Cft, s.upper())
+
+
+def str_to_goal_func(s):
+    return getattr(Gft, s.upper()) if s else None
+
+
+# ----------------- Algorithm Runner -----------------
+def run_algorithm(
+    algorithm_type, cost_type, goal_type, info_name, data_file, output_dir,
+    sub_graph_dim, saved_graph, enable_vis=True
+):
     cost_func = Cff.create_cost_function(cost_type) if cost_type else None
-    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=test_name)
+    graph = Graph(data_file, output_dir, cost_func, is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=info_name)
     graph.set_graph(saved_graph)
-    graph.calc_seed_set('genetic', select_goal_fun=goal_type)  # goal_type può essere None
-    print(f"Seed set (GENETIC, {cost_name}, {goal_name}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
+
+    print(f"[{algorithm_type.upper()}] Cost: {cost_type.name if cost_type else 'None'}, Goal: {goal_type.name if goal_type else 'None'}")
+    graph.calc_seed_set(algorithm_type, select_goal_fun=goal_type)
+    print(f"Seed set ({algorithm_type.upper()}): {graph.get_seed_set()} (size={len(graph.get_seed_set())})")
+
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
-    graph.plot_majority_cascade()
-    graph.save_plot(f'testGENETIC_{cost_name}_{goal_name}.png')
-    graph.dyn_plot_cascade()
+
+    if enable_vis:
+        graph.plot_majority_cascade()
+        graph.save_plot(f'{info_name}_plot.png')
+        graph.dyn_plot_cascade()
 
 
+# ----------------- Main Function -----------------
 def main():
-    if USE_MULTIPROCESSING:
+    config = load_config()
+
+    # Graph global settings
+    graph_config = config['graph']
+    data_file = graph_config['file_path']
+    output_dir = graph_config['save_path']
+    sub_graph_dim = graph_config['sub_graph_dim']
+    base_info_name = graph_config.get('info_name', 'experiment')
+    enable_vis = graph_config.get('cascade_visualization', True)
+    is_sub_graph = graph_config.get('is_sub_graph', True)
+
+    # Multiprocessing config
+    use_multiprocessing = config.get('use_multiprocessing', True)
+
+    if use_multiprocessing:
         try:
             set_start_method('spawn')
         except RuntimeError:
             pass
 
-    data_file = 'sourceData/facebook_data/facebook_combined.txt'
-    output_dir = 'results/'
-    sub_graph_dim = 100
     os.makedirs(output_dir, exist_ok=True)
 
-    # Build the base graph only once and share its structure
+    # Create reusable base graph
     base_cost = Cff.create_cost_function(Cft.RANDOM)
-    base_graph = Graph(data_file, output_dir, base_cost, is_sub_graph=True, sub_graph_dim=sub_graph_dim)
+    base_graph = Graph(data_file, output_dir, base_cost, is_sub_graph=is_sub_graph, sub_graph_dim=sub_graph_dim)
     saved_graph = base_graph.get_graf()
-
-    csg_tasks = [
-        #(Cft.RANDOM, Graph.GoalFuncType.F1),
-        #(Cft.RANDOM, Graph.GoalFuncType.F2),
-        #(Cft.RANDOM, Graph.GoalFuncType.F3),
-        #(Cft.DEGREE, Graph.GoalFuncType.F1),
-        #(Cft.DEGREE, Graph.GoalFuncType.F2),
-        #(Cft.DEGREE, Graph.GoalFuncType.F3),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F1),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F2),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F3),
-    ]
-
-    wtss_tasks = [] #[(Cft.RANDOM,), (Cft.DEGREE,), (Cft.CUSTOM,)]
-
-    genetic_tasks = [
-        #(Cft.RANDOM, Graph.GoalFuncType.F1),
-        #(Cft.RANDOM, Graph.GoalFuncType.F2),
-        #(Cft.RANDOM, Graph.GoalFuncType.F3),
-        #(Cft.RANDOM, None),
-        #(Cft.DEGREE, Graph.GoalFuncType.F1),
-        #(Cft.DEGREE, Graph.GoalFuncType.F2),
-        #(Cft.DEGREE, Graph.GoalFuncType.F3),
-        (Cft.DEGREE, None),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F1),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F2),
-        #(Cft.CUSTOM, Graph.GoalFuncType.F3),
-        (Cft.CUSTOM, None),
-    ]
 
     processes = []
 
-    # Launch CSG tasks
-    for cost_type, goal_type in csg_tasks:
-        name = f"CSG_{cost_type.name.lower()}_{goal_type.name.lower()}"
-        args = (cost_type, goal_type, name, data_file, output_dir, sub_graph_dim, saved_graph)
-        if USE_MULTIPROCESSING:
-            p = Process(target=run_csg, args=args)
-            p.start()
-            processes.append(p)
-        else:
-            run_csg(*args)
+    for algo_type, task_list in config['algorithms'].items():
+        for idx, task in enumerate(task_list):
+            cost_type = str_to_cost_func(task['cost_type']) if task.get('cost_type') else None
+            goal_type = str_to_goal_func(task.get('goal_type'))
 
-    # Launch WTSS tasks
-    for (cost_type,) in wtss_tasks:
-        name = f"WTSS_{cost_type.name.lower()}"
-        args = (cost_type, name, data_file, output_dir, sub_graph_dim, saved_graph)
-        if USE_MULTIPROCESSING:
-            p = Process(target=run_wtss, args=args)
-            p.start()
-            processes.append(p)
-        else:
-            run_wtss(*args)
+            goal_name = goal_type.name.lower() if goal_type else "none"
+            cost_name = cost_type.name.lower() if cost_type else "none"
+            # Include base_info_name in the task name
+            info_name = f"{base_info_name}_{algo_type.upper()}_{cost_name}_{goal_name}"
 
-    # Launch GENETIC tasks
-    for cost_type, goal_type in genetic_tasks:
-        goal_name = goal_type.name.lower() if goal_type else 'none'
-        name = f"GENETIC_{cost_type.name.lower()}_{goal_name}"
-        args = (cost_type, goal_type, name, data_file, output_dir, sub_graph_dim, saved_graph)
-        if USE_MULTIPROCESSING:
-            p = Process(target=run_genetic, args=args)
-            p.start()
-            processes.append(p)
-        else:
-            run_genetic(*args)
+            args = (
+                algo_type, cost_type, goal_type,
+                info_name, data_file, output_dir, sub_graph_dim,
+                saved_graph, enable_vis
+            )
 
-    if USE_MULTIPROCESSING:
+            if use_multiprocessing:
+                p = Process(target=run_algorithm, args=args)
+                p.start()
+                processes.append(p)
+            else:
+                run_algorithm(*args)
+
+    if use_multiprocessing:
         for p in processes:
             p.join()
         print("\n ---> All processes completed.")
+
 
 if __name__ == '__main__':
     main()
