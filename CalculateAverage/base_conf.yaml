@@ -1,0 +1,54 @@
+use_multiprocessing: true
+
+graph:
+  file_path: "sourceData/facebook_data/facebook_combined.txt"
+  save_path: "results/"
+  is_sub_graph: true
+  sub_graph_dim: 100
+  info_name: "experiment_1"
+  cascade_visualization: false
+
+algorithms:
+  csg:
+    - cost_type: "RANDOM"
+      goal_type: "F1"
+    - cost_type: "RANDOM"
+      goal_type: "F2"
+    - cost_type: "RANDOM"
+      goal_type: "F3"
+    - cost_type: "DEGREE"
+      goal_type: "F1"
+    - cost_type: "DEGREE"
+      goal_type: "F2"
+    - cost_type: "DEGREE"
+      goal_type: "F3"
+    - cost_type: "CUSTOM"
+      goal_type: "F1"
+    - cost_type: "CUSTOM"
+      goal_type: "F2"
+    - cost_type: "CUSTOM"
+      goal_type: "F3"
+
+  wtss:
+    - cost_type: "RANDOM"
+    - cost_type: "DEGREE"
+    - cost_type: "CUSTOM"
+
+  genetic:
+    - cost_type: "RANDOM"
+      goal_type: null
+    - cost_type: "DEGREE"
+      goal_type: null
+    - cost_type: "CUSTOM"
+      goal_type: null
+
+genetic_parameters:
+  crossover_probability: 0.8          # probabilità di crossover (cxpb)
+  mutation_probability: 0.4           # probabilità di mutazione (mutpb)
+  gene_swap_probability: 0.6          # probabilità di scambio genico nell’uniform crossover (indpb_crossover)
+  bit_flip_probability: 0.05          # probabilità di flip di ciascun bit in mutazione (indpb_mutation)
+  population_size: 200                # numero di individui nella popolazione
+  number_of_generations: 100          # numero totale di generazioni
+  verbose: false                       # flag per stampa di debug
+  new_individual_fraction: 0.05        # frazione di nuovi individui introdotti ogni generazione
+

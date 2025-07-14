@@ -107,3 +107,5 @@ sourceData
 .idea/RetiSociali.iml
 /.idea
 *.iml
+CalculateAverage/collected_results/*
+config.yaml
