@@ -4,7 +4,8 @@ from enum import Enum
 import math
 from cost_functions import base as cost_func_base
 from Graph.utils import plot_utils
-
+import json
+import os
 
 def marginal_gain(v, S, fi):
     """
@@ -513,3 +514,53 @@ class Graph:
                     └── diffusione.gif
         """
         plot_utils.dyn_plot_cascade(self)
+
+    def save_cascade_as_json(self, filepath=None):
+        """
+        Saves the current cascade (self.cascade) to a JSON file.
+        Each cascade is assumed to be a list of sets of integers (e.g., a list of diffusion steps).
+        If the file already exists, the cascade will be appended only if it’s not already present.
+
+        Parameters:
+            filepath (str): Optional path to the JSON file. If None, defaults to self.save_path + self.info_name.
+        """
+
+        def make_json_serializable(obj):
+            """
+            Recursively converts any sets in the object to sorted lists
+            so they can be safely serialized to JSON.
+            """
+            if isinstance(obj, set):
+                return sorted(make_json_serializable(e) for e in obj)
+            elif isinstance(obj, list):
+                return [make_json_serializable(e) for e in obj]
+            elif isinstance(obj, dict):
+                return {k: make_json_serializable(v) for k, v in obj.items()}
+            else:
+                return obj
+
+        # Determine file path
+        if filepath is None:
+            filepath = self.save_path + "txt/" + self.info_name + ".json"
+
+        # Load existing cascades if the file exists
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                try:
+                    cascades = json.load(f)
+                except json.JSONDecodeError:
+                    cascades = []
+        else:
+            cascades = []
+
+        # Convert self.cascade into a JSON-serializable format
+        cascade_serializable = make_json_serializable(self.cascade)
+
+        # Add only if not already present
+        if cascade_serializable not in cascades:
+            cascades.append(cascade_serializable)
+
+        # Save updated list to file
+        with open(filepath, 'w') as f:
+            json.dump(cascades, f, indent=2)
+

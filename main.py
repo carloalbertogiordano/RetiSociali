@@ -47,6 +47,8 @@ def run_algorithm(
 
     graph.calc_majority_cascade()
     graph.print_majority_cascade()
+    graph.save_cascade_as_json()
+    graph.plot_majority_cascade()
 
     if enable_vis:
         graph.plot_majority_cascade()
