@@ -7,12 +7,11 @@ from math import ceil
 class CustomCostFunction(CostFunction):
     cache = {}
     def calculate_cost(self, **kwargs):
-        """Placeholder for a custom cost function (currently random-based)."""
 
         graph = kwargs.get("graph")
-        igraph = kwargs.get("igraph")
         node_label = kwargs.get("node_label")
-        if node_label in self.cache.keys():
+
+        if node_label in self.cache.keys() and graph.is_cache():
             return self.cache[node_label]
         
         total = 0
@@ -25,5 +24,8 @@ class CustomCostFunction(CostFunction):
 
         result = ceil(total / 2)
         self.cache[node_label] = result
-        
+
         return result
+
+    def print_name(self):
+        return "CUSTOM"

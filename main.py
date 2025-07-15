@@ -28,6 +28,8 @@ def run_algorithm(
     algorithm_type, cost_type, goal_type, info_name, data_file, output_dir,
     sub_graph_dim, saved_graph, enable_vis, genetic_params=None
 ):
+    print(f"run_algo called with params: {algorithm_type} {cost_type}, {goal_type}, {info_name}, {data_file}, {output_dir}, {sub_graph_dim}, {saved_graph}, {enable_vis}, {genetic_params}")
+
     cost_func = Cff.create_cost_function(cost_type) if cost_type else None
     graph = Graph(data_file, output_dir, cost_func,
                   is_sub_graph=True, sub_graph_dim=sub_graph_dim, info_name=info_name)
@@ -46,7 +48,7 @@ def run_algorithm(
           f"(size={len(graph.get_seed_set())})")
 
     graph.calc_majority_cascade()
-    graph.print_majority_cascade()
+    #graph.print_majority_cascade()
     graph.save_cascade_as_json()
     graph.plot_majority_cascade()
 
@@ -91,7 +93,9 @@ def main():
     processes = []
 
     for algo_type, task_list in config['algorithms'].items():
+        print(f"Ruinning {algo_type}")
         for idx, task in enumerate(task_list):
+            print(f"with task {idx}:{task}")
             cost_type = str_to_cost_func(task['cost_type']) if task.get('cost_type') else None
             goal_type = str_to_goal_func(task.get('goal_type'))
 
@@ -105,6 +109,8 @@ def main():
                 info_name, data_file, output_dir, sub_graph_dim,
                 saved_graph, enable_vis, genetic_params
             )
+
+            print(f"Calling with args: {args}")
 
             if use_multiprocessing:
                 p = Process(target=run_algorithm, args=args)

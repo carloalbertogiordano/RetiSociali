@@ -72,6 +72,8 @@ class Graph:
         self._degree_cache = {}
         # Cache node list
         self._node_list_cache = ()
+        # Define if cache is to be used
+        self._is_cache = True
 
         if is_sub_graph:
             self.graph = get_subgraph(self.full_graph, sub_graph_dim)
@@ -81,14 +83,21 @@ class Graph:
         self.cost_fun = cost_func.calculate_cost
 
         self.budget = self.calculate_budget(self.cost_fun)
-        if self.budget > self.graph.vcount():
-            print(f"WARN: BUDGET HIGH GOT {self.budget}, NODE NUMBER IS {self.graph.vcount()}")
 
         #self.budget = budget
         self.save_path = save_path
         self.info_name=info_name
         self.seedSet = None
         self.cascade = None
+
+    def disable_cache(self):
+        self._is_cache = False
+
+    def enable_cache(self):
+        self._is_cache = True
+
+    def is_cache(self):
+        return self._is_cache
 
     def get_node_num(self):
         """
@@ -100,11 +109,9 @@ class Graph:
 
     def calculate_budget(self, cost_fun):
         num_top_nodes = math.ceil(self.get_node_num()/10)
-        #num_top_nodes = 5
         budget = 0
         node_cost = [cost_fun(node_label=n, igraph=self.graph, graph=self) for n in self.get_nodes_list()]
         node_cost = sorted(node_cost, reverse=True)
-        #print(f"costi: {node_cost}")
         for i in range(0,num_top_nodes):
             budget += node_cost[i]
 
@@ -114,7 +121,7 @@ class Graph:
         """
         Returns cached neighbors of node v by name.
         """
-        if v not in self._neighbor_cache:
+        if v not in self._neighbor_cache or not self.is_cache():
             vertex = self.graph.vs.find(name=v)
             self._neighbor_cache[v] = [nbr["name"] for nbr in vertex.neighbors()]
         return self._neighbor_cache[v]
@@ -123,16 +130,17 @@ class Graph:
         """
         Return a list of all node names in the graph, in order
         """
-        if len(self._node_list_cache) == 0:
+        if len(self._node_list_cache) == 0 or not self.is_cache():
             nl = []
             for v in self.graph.vs:
                 nl.append(v["name"])
             self._node_list_cache = nl
 
+        print(f"NL: {self._node_list_cache}")
         return self._node_list_cache
 
     def get_degree(self, v):
-        if v not in self._degree_cache:
+        if v not in self._degree_cache or not self.is_cache():
             self._degree_cache[v] = self.graph.vs.find(name=v).degree()
         return self._degree_cache[v]
 
@@ -281,9 +289,7 @@ class Graph:
 
         :param kwargs are ignored
         """
-
         V = self.get_nodes_list()
-
         U = set(V)
         S = set()
         thresholds = {v: max(1, self.get_degree(v) // 2) for v in V}
@@ -291,43 +297,50 @@ class Graph:
         # Stato dinamico
         delta = {v: self.get_degree(v) for v in V}  # δ(v) -> grado
         k = {v: thresholds[v] for v in V}  # k(v) -> threshold
-        neighbors = {v: set(x["name"] for x in self.graph.vs.find(
-            name=v).neighbors()) for v in V}  # neighbors(v) -> Vicini
+        neighbors = {v: set(x for x in self.get_neighbors(v)) for v in V}  # neighbors(v) -> Vicini
 
+        iteration = 0
         while U:
-            # Case 1: nodo già attivabile
+            iteration += 1
+
+            # Caso 1: nodo già attivabile
             activated = [v for v in U if k[v] == 0]
             if activated:
                 v = activated[0]
                 for u in neighbors[v]:
                     if u in U:
+                        old_k = k[u]
                         k[u] = max(0, k[u] - 1)
             else:
-                # Case 2: nodo non attivabile, ma troppo debole
+                # Caso 2: nodo non attivabile, ma troppo debole
                 weak = [v for v in U if delta[v] < k[v]]
                 if weak:
                     v = weak[0]
                     S.add(v)
                     for u in neighbors[v]:
                         if u in U:
+                            old_k = k[u]
                             k[u] = max(0, k[u] - 1)
                 else:
-                    # Case 3: scegli nodo ottimale da eliminare
-                    def score(u):
-                        if delta[u] == 0:
+                    # Caso 3: scegli nodo ottimale da eliminare
+                    def score(u_in):
+                        if delta[u_in] == 0:
                             return float('inf')
-                        return self.cost_fun(label=u, igraph=self.graph, graph=self) * k[u] / (delta[u] * (delta[u] + 1))
+                        cost = self.cost_fun(node_label=u_in, igraph=self.graph, graph=self)
+                        result = cost * k[u_in] / (delta[u_in] * (delta[u_in] + 1))
+                        return result
 
-                    v = min(U, key=score)
+                    v = max(U, key=score)
 
-            # Rimuovi v da U e aggiorna grafo dinamico
+            # Aggiornamento del grafo
             for u in neighbors[v]:
                 if u in U:
+                    old_delta = delta[u]
                     delta[u] -= 1
                     neighbors[u].discard(v)
             U.remove(v)
+
         self.seedSet = S
-        print(f"Len seed set {len(self.seedSet)}")
 
     def genetic_search(self, select_goal_fun=GoalFuncType.F1, **genetic_params):
         """

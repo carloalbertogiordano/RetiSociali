@@ -1,4 +1,3 @@
-from Graph.graph import Graph
 from cost_functions.custom_cost import CustomCostFunction
 from cost_functions.degree_cost import DegreeCostFunction
 from cost_functions.random_cost import RandomCostFunction
