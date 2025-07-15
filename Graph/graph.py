@@ -270,8 +270,9 @@ class Graph:
         S_d = set()
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
-        while self.cost_seed_set(S_d, self.cost_fun) <= self.budget:
-            # print(f"Costo di S {self.cost_seed_set(S_d, cost_fn)}, k={k}")
+        seed_set_cost = self.cost_seed_set(S_d, self.cost_fun)
+        while seed_set_cost <= self.budget:
+            print(f"Costo di S {seed_set_cost}, budget={self.budget}")
             u = self.argmax(V, S_d, obj_fun)
 
             S_p = S_d.copy()
