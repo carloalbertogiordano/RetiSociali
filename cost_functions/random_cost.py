@@ -20,8 +20,7 @@ class RandomCostFunction(CostFunction):
             return self.cache[node_label]
 
         rangeLow = kwargs.get("rangeLow", 1)
-        degree = graph.get_degree(node_label) 
-        rangeMax = kwargs.get("rangeMax", ceil(degree/2))
+        rangeMax = kwargs.get("rangeMax", 10)
         result = random.randint(rangeLow, rangeMax)
         self.cache[node_label] = result
 
