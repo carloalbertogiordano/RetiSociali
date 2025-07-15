@@ -277,6 +277,7 @@ class Graph:
 
             S_p = S_d.copy()
             S_d.add(u)
+            seed_set_cost = self.cost_seed_set(S_d, self.cost_fun)
         self.seedSet = list(S_p)
 
     def wtss(self, **kwargs):
