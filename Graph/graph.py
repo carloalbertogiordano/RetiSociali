@@ -82,13 +82,17 @@ class Graph:
             raise ValueError(f"Cost func is {type(cost_func)}, expected subclass of CostFunction")
         self.cost_fun = cost_func.calculate_cost
 
-        self.budget = self.calculate_budget(self.cost_fun)
+        self.budget = 0
 
         #self.budget = budget
         self.save_path = save_path
         self.info_name=info_name
         self.seedSet = None
         self.cascade = None
+
+    def get_budget(self):
+        if self.budget == 0 : self.budget = self.calculate_budget(self.cost_fun)
+        return self.budget
 
     def disable_cache(self):
         self._is_cache = False
@@ -108,10 +112,10 @@ class Graph:
         return self.graph.vcount()
 
     def calculate_budget(self, cost_fun):
-        #num_top_nodes = math.ceil(self.get_node_num()/10)
         budget = 0
         node_cost = [cost_fun(node_label=n, igraph=self.graph, graph=self) for n in self.get_nodes_list()]
         node_cost = sorted(node_cost, reverse=True)
+        print(f"First 5 nodes with higher cost: {node_cost[:5]}; {self.info_name}")
         for i in range(0,5):
             budget += node_cost[i]
 
@@ -154,7 +158,7 @@ class Graph:
         self._neighbor_cache = {}
         self._degree_cache = {}
         self._node_list_cache = ()
-        self.budget = self.calculate_budget(self.cost_fun)
+        self.budget = 0
 
     def cost_seed_set(self, S, cost):
         """
@@ -271,8 +275,8 @@ class Graph:
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
         seed_set_cost = self.cost_seed_set(S_d, self.cost_fun)
-        while seed_set_cost <= self.budget:
-            print(f"Costo di S {seed_set_cost}, budget={self.budget}")
+        while seed_set_cost <= self.get_budget():
+            print(f"Costo di S {seed_set_cost}, budget={self.get_budget()}")
             u = self.argmax(V, S_d, obj_fun)
 
             S_p = S_d.copy()

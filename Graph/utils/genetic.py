@@ -43,8 +43,8 @@ def evaluate_individual(individual, node_list, cost_function, graph, individual_
     #print(f"[EVAL DEBUG] Cost: {cost} (Budget: {graph.budget})")
 
     # Penalty for invalid
-    if cost <= 0 or cost > graph.budget:
-        result = (0, graph.budget * 2)
+    if cost <= 0 or cost > graph.get_budget():
+        result = (0, graph.get_budget() * 2)
         individual_cache[key] = result
         return result
 
@@ -62,7 +62,7 @@ def init_valid_individual(node_list, graph, cost_function):
     Create an individual with random greedy selection under budget.
     """
     individual = [0] * len(node_list)
-    budget = graph.budget
+    budget = graph.get_budget()
     total_cost = 0
 
     # Shuffle nodes and try include greedily
@@ -144,7 +144,7 @@ class GeneticAlgo:
         toolbox.register("mate", tools.cxUniform, indpb=self.indpb_crossover)
         toolbox.register("mutate", tools.mutFlipBit, indpb=self.indpb_mutation)
         # Selection with budget
-        toolbox.register("select", partial(sel_nsga2_filtered, budget=self.graph.budget))
+        toolbox.register("select", partial(sel_nsga2_filtered, budget=self.graph.get_budget()))
 
         self.toolbox = toolbox
 
@@ -210,7 +210,7 @@ class GeneticAlgo:
                         # Extract Pareto front
             front = tools.sortNondominated(pop, k=len(pop), first_front_only=True)[0]
             # Filter final by budget
-            valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.budget]
+            valid_front = [ind for ind in front if ind.fitness.values[1] <= self.graph.get_budget()]
             if self.verbose: print(f"[FINAL] Pareto solutions within budget: {len(valid_front)}")
 
             # Convert binary individuals to actual node IDs
@@ -224,5 +224,5 @@ class GeneticAlgo:
             #if self.verbose: print(f"RESULT: {results}")
             # Trova il seed set con fitness massimo (priorità: dimensione, poi costo)
             best_result = max(results, key=lambda r: (r['fitness'][0], -r['fitness'][1]))
-            print(f"[RESULT] Best seed set: {best_result['seed_set']} with fitness {best_result['fitness']} with total budget: {self.graph.budget}")
+            print(f"[RESULT] Best seed set: {best_result['seed_set']} with fitness {best_result['fitness']} with total budget: {self.graph.get_budget()}")
             return best_result['seed_set']
