@@ -136,7 +136,6 @@ class Graph:
                 nl.append(v["name"])
             self._node_list_cache = nl
 
-        print(f"NL: {self._node_list_cache}")
         return self._node_list_cache
 
     def get_degree(self, v):
@@ -272,15 +271,11 @@ class Graph:
 
         # Continua fino a quando il costo del seed set S_d non è maggiore del budget k
         while self.cost_seed_set(S_d, self.cost_fun) <= self.budget:
-            print(f" Cost seed set: {self.cost_seed_set(S_d, self.cost_fun)}, max is {self.budget}")
             # print(f"Costo di S {self.cost_seed_set(S_d, cost_fn)}, k={k}")
             u = self.argmax(V, S_d, obj_fun)
-            print(f"Selected node: {u}")
 
             S_p = S_d.copy()
             S_d.add(u)
-            print(f"Seed set (d): {S_d}, DIM{len(S_d)}")
-        print(f"Seed set (p): {S_p}")
         self.seedSet = list(S_p)
 
     def wtss(self, **kwargs):
