@@ -207,7 +207,7 @@ class Graph:
         :return: The total value of the objective function across all nodes.
         """
         key = frozenset(S)
-        if key in self._fun_cache and False:
+        if key in self._fun_cache:
             return self._fun_cache[key]
 
         total = 0
@@ -230,7 +230,7 @@ class Graph:
         """
 
         key = frozenset(S)
-        if key in self._fun_cache and False:
+        if key in self._fun_cache:
             return self._fun_cache[key]
 
         total = 0
