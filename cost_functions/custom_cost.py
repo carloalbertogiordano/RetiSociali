@@ -22,5 +22,8 @@ class CustomCostFunction(CostFunction):
             neighbors_of_v = set(graph.get_neighbors(v))
             degree_of_v = graph.get_degree(v)
             total += (degree_of_v / (len(neighbors_of_v.intersection(neighbors_of_u)) + 1))
+
+        result = ceil(total / 2)
+        self.cache[node_label] = result
         
-        return ceil(total / 2)
+        return result

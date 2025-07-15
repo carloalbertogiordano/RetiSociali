@@ -10,4 +10,6 @@ class DegreeCostFunction(CostFunction):
             return self.cache[node_label]
         
         graph = kwargs.get("graph")
-        return ceil(graph.get_degree(node_label) / 2)
+        result = ceil(graph.get_degree(node_label) / 2)
+        self.cache[node_label] = result
+        return result
