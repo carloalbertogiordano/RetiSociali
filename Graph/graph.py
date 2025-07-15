@@ -108,11 +108,11 @@ class Graph:
         return self.graph.vcount()
 
     def calculate_budget(self, cost_fun):
-        num_top_nodes = math.ceil(self.get_node_num()/10)
+        #num_top_nodes = math.ceil(self.get_node_num()/10)
         budget = 0
         node_cost = [cost_fun(node_label=n, igraph=self.graph, graph=self) for n in self.get_nodes_list()]
         node_cost = sorted(node_cost, reverse=True)
-        for i in range(0,num_top_nodes):
+        for i in range(0,5):
             budget += node_cost[i]
 
         return budget
