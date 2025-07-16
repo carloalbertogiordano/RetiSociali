@@ -109,3 +109,6 @@ sourceData
 *.iml
 CalculateAverage/collected_results/*
 config.yaml
+config.yaml
+CalculateAverage/base_conf.yaml
+CalculateAverage/base_conf.yaml
