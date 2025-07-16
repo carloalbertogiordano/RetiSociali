@@ -175,3 +175,20 @@ $$
 ### Results
 📁 GENETIC_custom_none.json ➜  ΔMedia Cascade - SS: 84.20
 ---
+
+## GA con budget più alto e 300 pop_size
+### Results
+📁 GENETIC_custom_none.json ➜  ΔMedia Cascade - SS: 150.20
+📁 GENETIC_degree_none.json ➜  ΔMedia Cascade - SS: 1990.40
+📁 GENETIC_random_none.json ➜  ΔMedia Cascade - SS: 114.40
+
+## GA con budget più alto e 400 pop_size
+### Results
+📁 GENETIC_custom_none.json ➜  ΔMedia Cascade - SS: 186.20
+📁 GENETIC_degree_none.json ➜  ΔMedia Cascade - SS: 2138.20
+📁 GENETIC_random_none.json ➜  ΔMedia Cascade - SS: 129.80
+
+## GA con budget più basso e 500 pop_size 
+📁 GENETIC_custom_none.json ➜  ΔMedia Cascade - SS: 3.20
+📁 GENETIC_degree_none.json ➜  ΔMedia Cascade - SS: 6.00
+📁 GENETIC_random_none.json ➜  ΔMedia Cascade - SS: 0.20
